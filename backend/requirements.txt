@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+websockets
+pydantic
+pinecone-client
+openai
+langchain
+motor
