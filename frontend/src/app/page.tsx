@@ -1,12 +1,16 @@
 import React from 'react';
-
+import HeroSection from '@/components/landing/Hero';
+import Navbar from '@/components/landing/Navbar';
+import FeaturesSection from '@/components/landing/Features';
 const HomePage = () => {
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen">
-            <h1 className="text-4xl font-bold">Welcome to the Code Suggestion Agent</h1>
-            <p className="mt-4 text-lg">This application provides real-time code suggestions using AI.</p>
-        </div>
-    );
+  return (
+    <main className="bg-[#1E1C26] text-foreground min-h-screen">
+       
+      <Navbar></Navbar>
+      <HeroSection></HeroSection>
+      <FeaturesSection></FeaturesSection>
+    </main>
+  );
 };
 
 export default HomePage;
