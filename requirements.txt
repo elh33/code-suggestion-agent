@@ -1,0 +1,18 @@
+# Core dependencies
+transformers>=4.30.0
+torch>=2.0.0
+sentence-transformers>=2.2.2
+langchain>=0.0.312
+langchain-community>=0.0.10
+chromadb>=0.4.0
+
+# Service dependencies
+websockets>=10.4
+fastapi>=0.95.0
+uvicorn>=0.22.0
+pydantic>=1.10.0
+python-dotenv>=1.0.0
+
+# Development dependencies
+jupyter>=1.0.0
+pytest>=7.0.0
