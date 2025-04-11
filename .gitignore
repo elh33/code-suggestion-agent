@@ -1,1 +1,12 @@
-/frontend/node_modules/@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node
+node_modules/
+.next/
+out/
+
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
