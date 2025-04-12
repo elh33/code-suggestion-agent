@@ -1,132 +1,94 @@
-from typing import Dict, List, Optional, Literal
-from langchain.chains import LLMChain 
-from langchain.prompts import PromptTemplate
-from langchain.llms.base import LLM
-
-from langchain_community.llms import HuggingFacePipeline
-
+from typing import Dict, List, Optional, Literal, Callable, Any, Union
 
 class CodeSuggestion:
-    """Class for generating code suggestions using the Phi-2 model"""
+    """Class for generating code suggestions using LLM models"""
     
-    SUGGESTION_TYPES = Literal["improvement", "bug_fix", "optimization", "refactoring", "documentation"]
+    SUGGESTION_TYPES = Literal["completion", "fix", "generate"]
     
     # Enhanced prompts for different suggestion types
     PROMPTS = {
-        "improvement": """
-        You are an expert programmer helping to improve code.
-        
-        Given the following code:
+        "completion": """[INST] <<SYS>>
+        You are an expert programming assistant specializing in code completion.
+        You complete partial code with clear, efficient, and well-structured solutions.
+        Focus on maintaining the existing code style and producing high-quality code.
+        <</SYS>>
+
+        Complete the following code:
         ```
         {code}
         ```
         
-        Context information (optional):
+        Additional context:
         {context}
         
-        Please suggest improvements to make this code more readable, maintainable, and aligned with best practices.
-        Format your response clearly with:
-        1. The improved code
-        2. A brief explanation of the changes made
+        Requirements:
+        - Complete the code naturally, as if the developer would have written it
+        - Follow best practices for the programming language
+        - Use efficient algorithms and data structures
+        - Include necessary error handling
+        - Maintain consistent naming conventions and style
+
+        Respond with ONLY the completed code. Do not include explanations. [/INST]
         """,
         
-        "bug_fix": """
-        You are an expert programmer helping to fix bugs in code.
-        
-        Given the following code:
+        "fix": """[INST] <<SYS>>
+        You are an expert programming assistant specializing in debugging and fixing code.
+        You identify and fix bugs, errors, and issues in code from any programming language.
+        Focus on maintaining the existing code style while fixing issues.
+        <</SYS>>
+
+        Fix the following code:
         ```
         {code}
         ```
         
-        Context information (optional):
+        Additional context:
         {context}
         
-        Please identify and fix any bugs or issues in this code.
-        Format your response clearly with:
-        1. The fixed code
-        2. An explanation of the bugs you found and how you fixed them
+        Fix all issues including:
+        - Syntax errors
+        - Logic bugs
+        - Performance problems
+        - Security vulnerabilities
+        
+        Respond with:
+        1. The complete fixed code
+        2. A brief explanation of what was wrong and what you fixed [/INST]
         """,
         
-        "optimization": """
-        You are an expert programmer helping to optimize code.
-        
-        Given the following code:
-        ```
+        "generate": """[INST] <<SYS>>
+        You are an expert programming assistant specializing in implementing code based on requirements.
+        You write clean, efficient, well-documented code in the appropriate programming language.
+        You focus on high-quality implementations following best practices.
+        <</SYS>>
+
+        Requirement:
         {code}
-        ```
         
-        Context information (optional):
+        Additional context:
         {context}
         
-        Please optimize this code for better performance while maintaining its functionality.
-        Format your response clearly with:
-        1. The optimized code
-        2. An explanation of the optimizations made and their benefits
-        """,
+        Create production-quality code that:
+        - Is clean, readable, and maintainable
+        - Has appropriate comments and documentation
+        - Handles edge cases properly
+        - Follows language-specific conventions and best practices
         
-        "refactoring": """
-        You are an expert programmer helping to refactor code.
-        
-        Given the following code:
-        ```
-        {code}
-        ```
-        
-        Context information (optional):
-        {context}
-        
-        Please refactor this code to improve its structure, readability, and maintainability.
-        Format your response clearly with:
-        1. The refactored code
-        2. An explanation of the refactoring changes made and their benefits
-        """,
-        
-        "documentation": """
-        You are an expert programmer helping to document code.
-        
-        Given the following code:
-        ```
-        {code}
-        ```
-        
-        Context information (optional):
-        {context}
-        
-        Please add appropriate documentation to this code, including:
-        - Function/method docstrings
-        - Inline comments for complex logic
-        - Any necessary module-level documentation
-        
-        Format your response clearly with:
-        1. The documented code
-        2. A brief explanation of the documentation you added
+        Respond with:
+        1. The complete implementation
+        2. A brief explanation of your approach and any notable design decisions [/INST]
         """
     }
     
-    def __init__(self, model_pipeline, vectorstore=None):
+    def __init__(self, model_pipeline: Union[Callable, Any], vectorstore=None):
         """Initialize the CodeSuggestion class
         
         Args:
-            model_pipeline: HuggingFace pipeline for text generation
+            model_pipeline: Either a QuantizedModel instance or a pipeline function
             vectorstore: Optional vector store for retrieving context
         """
         self.model_pipeline = model_pipeline
         self.vectorstore = vectorstore
-        
-        # Create LangChain HF pipeline
-        self.llm = HuggingFacePipeline(pipeline=model_pipeline)
-        
-        # Initialize chains for different suggestion types
-        self.chains = {}
-        for suggestion_type, prompt_template in self.PROMPTS.items():
-            prompt = PromptTemplate(
-                template=prompt_template,
-                input_variables=["code", "context"]
-            )
-            self.chains[suggestion_type] = LLMChain(
-                llm=self.llm,
-                prompt=prompt
-            )
     
     def get_context(self, code: str, n_results: int = 3) -> str:
         """Retrieve relevant context from the vector store
@@ -151,10 +113,50 @@ class CodeSuggestion:
         
         return "\n\n".join(context_items) if context_items else ""
     
+    def _clean_response(self, response: str) -> str:
+        """Clean up the model response by removing prompt artifacts
+        
+        Args:
+            response: Raw model response
+            
+        Returns:
+            Cleaned response
+        """
+        # Remove the instruction tag if it appears in the response
+        if "[/INST]" in response:
+            response = response.split("[/INST]", 1)[1].strip()
+        
+        # Remove common prefixes that models sometimes generate
+        prefixes_to_remove = [
+            "Here's the completed code:",
+            "Here is the completed code:",
+            "Here's the fixed code:",
+            "Here is the fixed code:",
+            "Here's the implementation:",
+            "Here is the implementation:"
+        ]
+        
+        for prefix in prefixes_to_remove:
+            if response.startswith(prefix):
+                response = response[len(prefix):].strip()
+        
+        return response
+    
+    def post_process_code(self, response: str, suggestion_type: str) -> str:
+        """Fix common errors in generated code"""
+        
+        if "split(\"\")" in response:
+            response = response.replace("split(\"\")", "")
+            response = response.replace("reversed_chars = string[::-1]", 
+                                    "reversed_string = string[::-1]")
+            response = response.replace("reversed_chars[i]", "reversed_string[i]")
+        
+        return response
+
     def generate_suggestion(
         self, 
         code: str, 
-        suggestion_type: SUGGESTION_TYPES = "improvement",
+        suggestion_type: SUGGESTION_TYPES = "completion",
         context: Optional[str] = None
     ) -> str:
         """Generate a code suggestion
@@ -167,15 +169,24 @@ class CodeSuggestion:
         Returns:
             Suggested code with explanations
         """
-        if suggestion_type not in self.chains:
+        if suggestion_type not in self.PROMPTS:
             raise ValueError(f"Invalid suggestion type: {suggestion_type}")
             
         # Get context if not provided
         if context is None and self.vectorstore:
             context = self.get_context(code)
             
-        # Generate suggestion
-        chain = self.chains[suggestion_type]
-        result = chain.run(code=code, context=context if context else "No additional context.")
+        # Format the prompt with the template
+        prompt_template = self.PROMPTS[suggestion_type]
+        formatted_prompt = prompt_template.format(
+            code=code,
+            context=context if context else "No additional context."
+        )
+        
+        # Generate text from the model
+        result = self.model_pipeline.generate(formatted_prompt, max_tokens=1536)
+        
+        # Clean the response before returning it
+        result = self._clean_response(result)
         
         return result

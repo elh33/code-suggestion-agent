@@ -53,7 +53,7 @@ code-suggestion-agent
 
 1. **Clone the repository**
    ```
-   git clone https://github.com/yourusername/code-suggestion-agent.git
+   git clone https://github.com/elh33/code-suggestion-agent.git
    cd code-suggestion-agent
    ```
 
@@ -87,78 +87,105 @@ code-suggestion-agent
   ```
 
 4. **AI Setup**
-- Navigate to the AI directory:
-  ```
+
+- Navigate to the AI directory:  
+  ```bash
   cd ../ai
   ```
-- Install dependencies:
-  ```
+
+- Install dependencies:  
+  ```bash
   pip install -r requirements.txt
   ```
-- Configure environment variables (optional):
-  - Copy the example env file: `cp .env.example .env`
-  - Edit the `.env` file to customize settings
 
-- Start the AI service:
+- Configure environment variables (optional):  
+  - Copy the example env file:  
+    ```bash
+    cp .env.example .env
+    ```
+  - Edit the `.env` file to customize settings.
+
+- Start the AI service:  
+  ```bash
+  start_websocket_service.bat
   ```
-  uvicorn api:app --reload --port 8001
+
+---
+
+## **AI Component Configuration**
+
+The AI component now uses environment variables for configuration:
+
+```env
+MODEL_FILE=codellama-7b-instruct.Q4_K_M.gguf
+MODEL_DOWNLOAD_DIR=D:/models
+DEVICE=cpu
+TEMPERATURE=0.7
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+VECTORSTORE_DIR=D:/code_vectorstore
+```
+
+---
+
+## **How the AI Component Works**
+
+The AI component has several key modules:
+
+1. **Code Suggestion Module**  
+   Uses a quantized CodeLlama 7B model (GGUF format) for generating high-quality code completions, fixes, and implementations.
+
+2. **Embeddings Module**  
+   Uses a lightweight Sentence Transformer model for code similarity search.
+
+3. **Vector Store Module**  
+   Uses ChromaDB to store and retrieve similar code examples.
+
+4. **WebSocket Interface**  
+   Provides real-time code suggestions through a WebSocket API.
+
+---
+
+## **WebSocket Endpoint**
+
+- **URL:** `ws://localhost:8000`
+- **Send:** JSON with:
+  ```json
+  {
+    "id": "unique_id",
+    "type": "completion | fix | generate",
+    "code": "your_code_here"
+  }
+  ```
+- **Receive:** JSON with:
+  ```json
+  {
+    "id": "unique_id",
+    "status": "success",
+    "suggestion": "code_suggestion"
+  }
   ```
 
-## AI Component Configuration
+---
 
-The AI component uses environment variables for configuration, which can be set in a `.env` file:
+## **Types of Code Suggestions**
 
-### StarCoder settings
-STARCODER_MODEL=bigcode/starcoder # Model name from Hugging Face DEVICE=cpu # Use "cuda" if you have a compatible GPU TEMPERATURE=0.7 # Higher values = more creative suggestions
+- **completion** – Completes partial code blocks  
+- **fix** – Identifies and fixes bugs in code  
+- **generate** – Creates code implementations from requirements
 
-### ChromaDB settings
-CHROMA_PERSIST_DIR=chroma_db # Directory for persistent storage
+---
 
-### Embedding settings
-EMBEDDING_MODEL=all-MiniLM-L6-v2 # Sentence transformer model for embeddings
+## **Testing the Connection**
 
-## How the AI Component Works
+- Start the WebSocket service:
+  ```bash
+  start_websocket_service.bat
+  ```
 
-The AI component has several key modules that work together:
+- Run the test client:
+  ```bash
+  python test_ws.py
+  ```
 
-1. **Code Suggestion Module**: Uses StarCoder (an open-source code generation model) through LangChain to provide intelligent code suggestions.
-
-2. **Embeddings Module**: Converts code snippets into vector embeddings using Sentence Transformers.
-
-3. **Vector Store Module**: Stores and retrieves similar code snippets using ChromaDB (an open-source vector database).
-
-4. **Coordinator**: Orchestrates the workflow between these components.
-
-5. **API Interface**: Provides both REST API and WebSocket endpoints for real-time code suggestions.
-
-## API Endpoints
-
-### REST Endpoints
-
-- `POST /api/suggest`: Submit code for suggestions
-  - Request body: `{code, file_path, language, surrounding_code, project_context, suggestion_type}`
-  - Returns: `{suggestions: [{suggestion, confidence, source}]}`
-
-- `POST /api/feedback`: Submit feedback on suggestions
-  - Request body: `{code, file_path, language}` + `improved_code`
-  - Returns: Success/failure message
-
-### WebSocket Endpoint
-
-- `ws://localhost:8001/ws/suggest`: Real-time code suggestions
-  - Send: JSON with `{code, file_path, language, surrounding_code, project_context, suggestion_type}`
-  - Receive: JSON with `{type: "suggestion", suggestions: [{suggestion, confidence, source}]}`
-
-## Types of Code Suggestions
-
-The AI component can provide different types of code suggestions:
-
-- **improvement**: General code improvements for readability and maintainability
-- **bug_fix**: Identification and correction of potential bugs
-- **optimization**: Suggestions for performance improvements
-- **refactoring**: Structural improvements without changing behavior
-- **documentation**: Improvements to code comments and documentation
-
-## Testing the Connection
-- Ensure all three services (frontend, backend, and AI) are running.
-- Test the connection by using the integrated code editor and checking for real-time suggestions.
+- Select the type of suggestion you want to test  
+- Response time: **30–120 seconds**, depending on complexity

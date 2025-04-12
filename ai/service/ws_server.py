@@ -4,7 +4,7 @@ import logging
 import websockets
 from typing import Dict, Any, Set, Optional
 from ..chains.code_suggestion import CodeSuggestion
-from ..model.phi2_model import Phi2Model
+from ..model.llm_model import QuantizedModel
 from ..vectorstore.chroma_store import ChromaVectorStore
 
 # Setup logging
@@ -18,7 +18,7 @@ class CodeSuggestionServer:
         self,
         host: str = "localhost",
         port: int = 8000,
-        phi2_model: Optional[Phi2Model] = None,
+        model: Optional[QuantizedModel] = None,
         vector_store: Optional[ChromaVectorStore] = None
     ):
         """Initialize the WebSocket server
@@ -26,22 +26,22 @@ class CodeSuggestionServer:
         Args:
             host: Server host
             port: Server port
-            phi2_model: Initialized Phi2Model instance
+            model: Initialized Model instance
             vector_store: Initialized vector store
         """
         self.host = host
         self.port = port
-        self.phi2_model = phi2_model
+        self.model = model
         self.vector_store = vector_store
         
         # Initialize components if not provided
-        if not self.phi2_model:
-            logger.info("Initializing Phi-2 model")
-            self.phi2_model = Phi2Model()
+        if not self.model:
+            logger.info("Initializing model")
+            self.model = QuantizedModel()
             
-        # Create code suggestion chain
+        # Create code suggestion chain - pass the model directly
         self.code_suggestion = CodeSuggestion(
-            model_pipeline=self.phi2_model.pipeline,
+            model_pipeline=self.model,  # Pass the model itself
             vectorstore=self.vector_store
         )
         
@@ -66,25 +66,16 @@ class CodeSuggestionServer:
             message: JSON message string
         """
         try:
-            # Parse message
             data = json.loads(message)
             request_id = data.get("id", "unknown")
-            action = data.get("action")
             
-            if action == "suggest":
-                await self.handle_suggestion(websocket, request_id, data)
-            else:
-                await websocket.send(json.dumps({
-                    "id": request_id,
-                    "status": "error",
-                    "message": f"Unknown action: {action}"
-                }))
+            # Handle suggestion request
+            await self.handle_suggestion(websocket, request_id, data)
                 
         except json.JSONDecodeError:
-            logger.error("Invalid JSON received")
             await websocket.send(json.dumps({
                 "status": "error",
-                "message": "Invalid JSON format"
+                "message": "Invalid JSON message"
             }))
         except Exception as e:
             logger.exception(f"Error handling message: {str(e)}")
@@ -99,16 +90,14 @@ class CodeSuggestionServer:
         request_id: str,
         data: Dict[str, Any]
     ):
-        """Handle code suggestion requests
-        
-        Args:
-            websocket: WebSocket connection
-            request_id: Request identifier
-            data: Request data
-        """
+        """Handle code suggestion requests"""
         code = data.get("code", "")
-        suggestion_type = data.get("type", "improvement")
+        suggestion_type = data.get("type", "completion")
         context = data.get("context", None)
+        
+        if context is None:
+            # Format context better
+            context = "No additional context available."
         
         if not code:
             await websocket.send(json.dumps({
@@ -126,11 +115,20 @@ class CodeSuggestionServer:
         
         # Generate suggestion
         try:
-            suggestion = self.code_suggestion.generate_suggestion(
-                code=code,
-                suggestion_type=suggestion_type,
-                context=context
+            # Start a task to generate the suggestion
+            loop = asyncio.get_running_loop()
+            suggestion = await loop.run_in_executor(
+                None,
+                lambda: self.code_suggestion.generate_suggestion(
+                    code=code,
+                    suggestion_type=suggestion_type,
+                    context=context
+                )
             )
+            
+            # Clean up the suggestion - remove instruction formatting if present
+            if "[/INST]" in suggestion:
+                suggestion = suggestion.split("[/INST]", 1)[1].strip()
             
             # Send response
             await websocket.send(json.dumps({
@@ -139,7 +137,6 @@ class CodeSuggestionServer:
                 "suggestion": suggestion,
                 "type": suggestion_type
             }))
-            
         except Exception as e:
             logger.exception(f"Error generating suggestion: {str(e)}")
             await websocket.send(json.dumps({
@@ -160,7 +157,9 @@ class CodeSuggestionServer:
             async for message in websocket:
                 await self.handle_message(websocket, message)
         except websockets.ConnectionClosed:
-            pass
+            logger.info("Connection closed normally")
+        except Exception as e:
+            logger.exception(f"Error in handler: {str(e)}")
         finally:
             await self.unregister(websocket)
     
