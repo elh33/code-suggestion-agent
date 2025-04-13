@@ -2,14 +2,13 @@
 
 import type React from 'react';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   FileCode,
   FolderOpen,
   Settings,
   Search,
   PanelLeft,
-  Sparkles,
   MessageSquare,
   ChevronRight,
   ChevronDown,
@@ -28,7 +27,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +38,7 @@ import {
 } from '@/components/ui/dialog';
 import LoadingScreen from '@/components/loading-screen';
 import MonacoIntegration from './monaco-integration';
+import type { CodeSuggestion } from './suggestion-types';
 
 // Define types for our file system
 interface FileItem {
@@ -92,6 +91,7 @@ export default function DashboardPage() {
   const [newItemName, setNewItemName] = useState<string>('');
   const [newItemParentId, setNewItemParentId] = useState<number | null>(null);
   const [nextId, setNextId] = useState<number>(9); // For generating new file/folder IDs
+  const [suggestions, setSuggestions] = useState<CodeSuggestion[]>([]);
 
   // Simulated files for the file explorer - now with state
   const [files, setFiles] = useState<FileSystemItem[]>([
@@ -257,6 +257,9 @@ export function debounce(func, wait) {
     setFileContents(initialContents);
   }, []);
 
+  // Add this function to enhance the language detection with more file extensions
+  // Replace the existing getFileLanguage function with this enhanced version:
+
   // Enhanced language detection based on file extension
   const getFileLanguage = (filename: string): string => {
     const extension = filename.split('.').pop()?.toLowerCase() || '';
@@ -266,61 +269,199 @@ export function debounce(func, wait) {
       jsx: 'javascript',
       ts: 'typescript',
       tsx: 'typescript',
+      mjs: 'javascript',
+      cjs: 'javascript',
 
       // Web
       html: 'html',
       htm: 'html',
+      xhtml: 'html',
       css: 'css',
       scss: 'scss',
       less: 'less',
 
       // Data formats
       json: 'json',
+      jsonc: 'json',
       yaml: 'yaml',
       yml: 'yaml',
+      toml: 'ini',
+      ini: 'ini',
+      xml: 'xml',
+      svg: 'xml',
 
       // Markup
       md: 'markdown',
       markdown: 'markdown',
+      txt: 'plaintext',
 
       // Programming languages
       py: 'python',
+      pyc: 'python',
+      pyd: 'python',
+      pyo: 'python',
+      pyw: 'python',
       rb: 'ruby',
+      erb: 'ruby',
       java: 'java',
       c: 'c',
+      h: 'c',
       cpp: 'cpp',
+      hpp: 'cpp',
+      cc: 'cpp',
+      cxx: 'cpp',
       cs: 'csharp',
       go: 'go',
       rs: 'rust',
       php: 'php',
+      php5: 'php',
+      phtml: 'php',
+      swift: 'swift',
+      kt: 'kotlin',
+      kts: 'kotlin',
+      dart: 'dart',
+      lua: 'lua',
+      pl: 'perl',
+      pm: 'perl',
+      r: 'r',
+      scala: 'scala',
+      clj: 'clojure',
+      groovy: 'groovy',
 
       // Shell
       sh: 'shell',
       bash: 'shell',
+      zsh: 'shell',
+      fish: 'shell',
+      ps1: 'powershell',
+      bat: 'bat',
+      cmd: 'bat',
 
       // Config
-      xml: 'xml',
-      svg: 'xml',
+      dockerfile: 'dockerfile',
+      jenkinsfile: 'groovy',
+      makefile: 'makefile',
 
       // Other
       sql: 'sql',
       graphql: 'graphql',
       gql: 'graphql',
+      proto: 'protobuf',
+      tex: 'latex',
+      elm: 'elm',
+      haskell: 'haskell',
+      hs: 'haskell',
+      fs: 'fsharp',
+      fsx: 'fsharp',
     };
 
     return languageMap[extension] || 'plaintext';
   };
 
-  // Handle file content change
-  const handleEditorChange = (value: string) => {
-    // Only update the state if the content actually changed
-    if (fileContents[currentFile] !== value) {
-      setFileContents((prev) => ({
-        ...prev,
-        [currentFile]: value,
-      }));
-    }
+  // Add a function to get documentation for keywords
+  // Add this after the getFileLanguage function:
+
+  // Get documentation for a keyword in a specific language
+  const getKeywordDocumentation = (
+    language: string,
+    keyword: string
+  ): string | null => {
+    // This is a simplified example - in a real application, you would have more comprehensive documentation
+    const docs: Record<string, Record<string, string>> = {
+      javascript: {
+        function: 'Declares a function in JavaScript.',
+        const: 'Declares a block-scoped, immutable variable.',
+        let: 'Declares a block-scoped, mutable variable.',
+        var: 'Declares a function-scoped variable.',
+        if: 'Executes a statement if a specified condition is truthy.',
+        for: 'Creates a loop that executes code for each element in an array or object.',
+        while:
+          'Creates a loop that executes code as long as a condition is true.',
+        try: 'Implements error handling for code that might throw exceptions.',
+        async: 'Declares an asynchronous function that returns a Promise.',
+        await:
+          'Pauses execution of an async function until a Promise is settled.',
+        class: 'Defines a class (introduced in ES6).',
+        import: 'Imports bindings from a module.',
+        export:
+          'Exports functions, objects, or primitive values from a module.',
+      },
+      python: {
+        def: 'Defines a function in Python.',
+        class: 'Defines a class in Python.',
+        if: 'Executes a block of code if a specified condition is true.',
+        for: 'Iterates over a sequence (list, tuple, dictionary, set, or string).',
+        while: 'Creates a loop that executes as long as a condition is true.',
+        try: 'Implements error handling for code that might raise exceptions.',
+        import: 'Imports a module into the current namespace.',
+        from: 'Imports specific attributes from a module.',
+        async: 'Declares an asynchronous function or context manager.',
+        await:
+          'Pauses execution of an async function until a coroutine completes.',
+        with: 'Ensures proper acquisition and release of resources.',
+        lambda: 'Creates a small anonymous function.',
+      },
+      // Add more languages as needed
+    };
+
+    return docs[language]?.[keyword] || null;
   };
+
+  // Handle file content change - use useCallback to avoid recreating this function
+  const handleEditorChange = useCallback(
+    (value: string) => {
+      // Only update state when necessary (e.g., when saving or switching files)
+      // For continuous typing, we'll rely on the editor's internal state
+      setFileContents((prev) => {
+        // Only update if the value has actually changed
+        if (prev[currentFile] !== value) {
+          return {
+            ...prev,
+            [currentFile]: value,
+          };
+        }
+        return prev;
+      });
+    },
+    [currentFile]
+  );
+
+  // Add this function to handle suggestions from the editor
+  const handleSuggestionsChange = useCallback(
+    (newSuggestions: CodeSuggestion[]) => {
+      setSuggestions(newSuggestions);
+    },
+    []
+  );
+
+  // Add this function to handle applying a suggestion
+  const handleApplySuggestion = useCallback(
+    (suggestion: CodeSuggestion) => {
+      if (suggestion.replacement) {
+        const currentContent = fileContents[currentFile] || '';
+        const lines = currentContent.split('\n');
+
+        // Replace the line with the suggestion
+        if (suggestion.lineNumber <= lines.length) {
+          lines[suggestion.lineNumber - 1] = suggestion.replacement;
+
+          const newContent = lines.join('\n');
+          setFileContents((prev) => ({
+            ...prev,
+            [currentFile]: newContent,
+          }));
+        }
+      }
+    },
+    [currentFile, fileContents]
+  );
+
+  // Add this function to jump to a specific line in the editor
+  const handleJumpToLine = useCallback((lineNumber: number) => {
+    // This will be handled by the Monaco editor internally
+    // We just need to pass the information to the parent component
+    console.log(`Jump to line ${lineNumber}`);
+  }, []);
 
   // Find file by name in the file structure
   const findFileByName = (
@@ -341,15 +482,6 @@ export function debounce(func, wait) {
   const getCurrentFileLanguage = (): string => {
     const file = findFileByName(currentFile);
     return file?.language || getFileLanguage(currentFile);
-  };
-
-  // Handle adding a suggestion to the current file
-  const handleApplySuggestion = (suggestionCode: string) => {
-    const currentContent = fileContents[currentFile] || '';
-    setFileContents((prev) => ({
-      ...prev,
-      [currentFile]: currentContent + '\n\n' + suggestionCode,
-    }));
   };
 
   // Create new file or folder
@@ -845,6 +977,7 @@ export function debounce(func, wait) {
                 initialValue={fileContents[currentFile] || `// ${currentFile}`}
                 language={getCurrentFileLanguage()}
                 onChange={handleEditorChange}
+                onSuggestionsChange={handleSuggestionsChange}
               />
             </div>
 
@@ -858,10 +991,8 @@ export function debounce(func, wait) {
                 <>
                   <div className="h-10 border-b border-gray-800 flex items-center justify-between px-4">
                     <div className="flex items-center">
-                      <Sparkles className="w-4 h-4 text-indigo-400 mr-2" />
-                      <span className="font-medium text-sm">
-                        AI Suggestions
-                      </span>
+                      <MessageSquare className="w-4 h-4 text-indigo-400 mr-2" />
+                      <span className="font-medium text-sm">AI Chat</span>
                     </div>
                     <Button
                       variant="ghost"
@@ -873,88 +1004,39 @@ export function debounce(func, wait) {
                     </Button>
                   </div>
 
-                  <Tabs
-                    defaultValue="suggestions"
-                    className="flex-1 flex flex-col"
-                  >
-                    <TabsList className="grid grid-cols-2 mx-4 mt-2">
-                      <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-                      <TabsTrigger value="chat">Chat</TabsTrigger>
-                    </TabsList>
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      <div className="flex items-start space-x-2">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-indigo-600 text-xs">
+                            AI
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 bg-gray-800/50 rounded-lg p-3">
+                          <p className="text-sm text-gray-300">
+                            Hello! I'm your AI coding assistant. How can I help
+                            you today?
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                    <TabsContent
-                      value="suggestions"
-                      className="flex-1 overflow-y-auto p-4 space-y-4"
-                    >
-                      {aiSuggestions.map((suggestion) => (
-                        <div
-                          key={suggestion.id}
-                          className="rounded-lg border border-gray-800 overflow-hidden"
+                    <div className="border-t border-gray-800 p-4">
+                      <div className="relative">
+                        <Input
+                          placeholder="Ask a question..."
+                          className="pr-10 bg-gray-800/50 border-gray-700"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                         >
-                          <div className="bg-gray-800/50 px-3 py-2 flex items-center justify-between">
-                            <div className="flex items-center">
-                              <Sparkles className="w-4 h-4 text-indigo-400 mr-2" />
-                              <span className="text-sm font-medium capitalize">
-                                {suggestion.type}
-                              </span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-indigo-400 hover:text-indigo-300"
-                              onClick={() =>
-                                handleApplySuggestion(suggestion.code)
-                              }
-                            >
-                              Apply
-                            </Button>
-                          </div>
-                          <div className="p-3 bg-gray-900/50">
-                            <pre className="text-xs text-gray-300 overflow-x-auto">
-                              {suggestion.code}
-                            </pre>
-                          </div>
-                          <div className="px-3 py-2 text-xs text-gray-400">
-                            {suggestion.explanation}
-                          </div>
-                        </div>
-                      ))}
-                    </TabsContent>
-
-                    <TabsContent value="chat" className="flex-1 flex flex-col">
-                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        <div className="flex items-start space-x-2">
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback className="bg-indigo-600 text-xs">
-                              AI
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 bg-gray-800/50 rounded-lg p-3">
-                            <p className="text-sm text-gray-300">
-                              Hello! I'm your AI coding assistant. How can I
-                              help you today?
-                            </p>
-                          </div>
-                        </div>
+                          <MessageSquare className="w-5 h-5" />
+                        </Button>
                       </div>
-
-                      <div className="border-t border-gray-800 p-4">
-                        <div className="relative">
-                          <Input
-                            placeholder="Ask a question..."
-                            className="pr-10 bg-gray-800/50 border-gray-700"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                          >
-                            <MessageSquare className="w-5 h-5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -965,7 +1047,7 @@ export function debounce(func, wait) {
                   className="absolute right-4 top-4 text-gray-400 hover:text-white"
                   onClick={() => setAiPanelOpen(true)}
                 >
-                  <Sparkles className="w-5 h-5" />
+                  <MessageSquare className="w-5 h-5" />
                 </Button>
               )}
             </div>

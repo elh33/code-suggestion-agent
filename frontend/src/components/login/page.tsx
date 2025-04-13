@@ -639,31 +639,9 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="space-y-4 mb-6">
-                <Button
-                  variant="outline"
-                  className="w-full bg-gray-800/50 border-gray-700 hover:bg-gray-700/50 text-white"
-                >
-                  <Github className="mr-2 h-4 w-4" />
-                  Continue with GitHub
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full bg-gray-800/50 border-gray-700 hover:bg-gray-700/50 text-white"
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  Continue with Google
-                </Button>
-              </div>
-
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-700"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-[#0a0a12] text-gray-400">
-                    Or continue with
-                  </span>
                 </div>
               </div>
 
@@ -694,12 +672,6 @@ export default function LoginPage() {
                     >
                       Password
                     </label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-xs text-indigo-400 hover:text-indigo-300"
-                    >
-                      Forgot password?
-                    </Link>
                   </div>
                   <Input
                     id="password"
@@ -710,23 +682,6 @@ export default function LoginPage() {
                     required
                     className="bg-gray-800/50 border-gray-700 text-white focus:border-indigo-500 focus:ring-indigo-500"
                   />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) =>
-                      setRememberMe(checked as boolean)
-                    }
-                    className="data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-300"
-                  >
-                    Remember me for 30 days
-                  </label>
                 </div>
 
                 <Button

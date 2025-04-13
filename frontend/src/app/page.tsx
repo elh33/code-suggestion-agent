@@ -24,7 +24,7 @@ const HomePage = () => {
         <LoadingScreen finishLoading={finishLoading} />
       ) : (
         <main className="min-h-screen bg-[#0e0d14]">
-          <SignupPage />
+          <DashboardPage></DashboardPage>
         </main>
       )}
     </>

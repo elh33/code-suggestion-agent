@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50  backdrop-blur-md  shadow-md">
       <nav className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <div className="text-2xl font-bold text-gray-900">
-            <span className='text-white'>EnsaAi</span>
+          <span className="text-white">EnsaAi</span>
         </div>
 
         <ul
@@ -48,20 +48,20 @@ export default function Navbar() {
 
         {/* Buttons (Login and Signup) */}
         <div className="hidden sm:flex space-x-4">
-        <Button
-              size="lg"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl text-white hover:from-blue-600 hover:to-purple-700"
-              asChild
-            >
-              <Link href="/get-started">Signup</Link>
-            </Button>
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 rounded-2xl hover:to-purple-700"
-              asChild
-            >
-              <Link href="/get-started">Login</Link>
-            </Button>
+          <Button
+            size="lg"
+            className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl text-white hover:from-blue-600 hover:to-purple-700"
+            asChild
+          >
+            <Link href="/signup">Signup</Link>
+          </Button>
+          <Button
+            size="lg"
+            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 rounded-2xl hover:to-purple-700"
+            asChild
+          >
+            <Link href="/login">Login</Link>
+          </Button>
         </div>
 
         {/* Mobile Menu Toggle Button */}
