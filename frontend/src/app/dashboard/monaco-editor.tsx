@@ -6,6 +6,7 @@ import * as monaco from 'monaco-editor';
 // Import the language data and suggestion types
 import {
   type CodeSuggestion,
+  type SuggestionType,
   getSuggestionIcon,
   getSeverityColor,
 } from './suggestion-types';
@@ -17,6 +18,7 @@ interface MonacoEditorProps {
   theme?: string;
   options?: monaco.editor.IStandaloneEditorConstructionOptions;
   onSuggestionsChange?: (suggestions: CodeSuggestion[]) => void;
+  optimizationTypes?: string[]; // New prop for filtering optimization types
 }
 
 // Function to get language-specific keywords and builtins
@@ -175,240 +177,6 @@ function getLanguageKeywords(language: string) {
           'is',
         ],
       };
-    case 'html':
-      return {
-        keywords: [
-          'html',
-          'head',
-          'body',
-          'div',
-          'span',
-          'p',
-          'a',
-          'img',
-          'ul',
-          'ol',
-          'li',
-          'table',
-          'tr',
-          'td',
-          'th',
-          'form',
-          'input',
-          'button',
-          'select',
-          'option',
-          'textarea',
-          'script',
-          'style',
-        ],
-        builtins: [],
-        operators: [],
-      };
-    case 'css':
-      return {
-        keywords: [
-          'color',
-          'background',
-          'margin',
-          'padding',
-          'border',
-          'font-size',
-          'font-family',
-          'display',
-          'position',
-          'width',
-          'height',
-          'text-align',
-          'float',
-          'clear',
-        ],
-        builtins: [],
-        operators: [],
-      };
-    case 'php':
-      return {
-        keywords: [
-          'function',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'class',
-          'extends',
-          'new',
-          'public',
-          'private',
-          'protected',
-          'static',
-          'echo',
-          'include',
-          'require',
-        ],
-        builtins: [
-          'strlen',
-          'count',
-          'array',
-          'date',
-          'time',
-          'isset',
-          'empty',
-        ],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '===',
-          '!=',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '&&',
-          '||',
-          '!',
-          '?',
-        ],
-      };
-    case 'java':
-      return {
-        keywords: [
-          'class',
-          'public',
-          'private',
-          'protected',
-          'static',
-          'void',
-          'int',
-          'double',
-          'float',
-          'boolean',
-          'String',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'new',
-          'this',
-          'import',
-          'package',
-        ],
-        builtins: [
-          'System.out.println',
-          'Math.random',
-          'ArrayList',
-          'HashMap',
-          'Scanner',
-        ],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '===',
-          '!=',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '&&',
-          '||',
-          '!',
-          '?',
-        ],
-      };
-    case 'c':
-      return {
-        keywords: [
-          'int',
-          'double',
-          'float',
-          'char',
-          'void',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'struct',
-          'typedef',
-          'include',
-          'define',
-        ],
-        builtins: ['printf', 'scanf', 'malloc', 'free', 'strlen', 'strcpy'],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '!=',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '&&',
-          '||',
-          '!',
-          '?',
-        ],
-      };
-    case 'cpp':
-      return {
-        keywords: [
-          'int',
-          'double',
-          'float',
-          'char',
-          'void',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'class',
-          'public',
-          'private',
-          'protected',
-          'new',
-          'delete',
-          'include',
-          'namespace',
-        ],
-        builtins: [
-          'std::cout',
-          'std::cin',
-          'std::vector',
-          'std::string',
-          'std::map',
-        ],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '===',
-          '!=',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '&&',
-          '||',
-          '!',
-          '?',
-        ],
-      };
     default:
       return { keywords: [], builtins: [], operators: [] };
   }
@@ -509,6 +277,7 @@ function BaseMonacoEditor({
   theme = 'vs-dark',
   options = {},
   onSuggestionsChange,
+  optimizationTypes = ['performance', 'bugfix', 'refactoring', 'completion'],
 }: MonacoEditorProps) {
   // DOM element reference
   const editorRef = useRef<HTMLDivElement>(null);
@@ -526,6 +295,7 @@ function BaseMonacoEditor({
   const languageRef = useRef(language);
   const onChangeRef = useRef(onChange);
   const onSuggestionsChangeRef = useRef(onSuggestionsChange);
+  const optimizationTypesRef = useRef(optimizationTypes);
 
   // Store suggestions
   const suggestionsRef = useRef<CodeSuggestion[]>([]);
@@ -562,6 +332,26 @@ function BaseMonacoEditor({
     onSuggestionsChangeRef.current = onSuggestionsChange;
   }, [onSuggestionsChange]);
 
+  useEffect(() => {
+    optimizationTypesRef.current = optimizationTypes;
+
+    // Update stars based on new optimization types
+    if (initializedRef.current) {
+      // Re-filter and update the inline stars
+      const filteredSuggestions = suggestionsRef.current.filter((suggestion) =>
+        optimizationTypes.includes(
+          suggestion.type === 'optimization' ? 'performance' : suggestion.type
+        )
+      );
+
+      // Update decorations to show suggestion indicators
+      updateSuggestionDecorations(filteredSuggestions);
+
+      // Add inline buttons next to code lines with suggestions
+      addInlineButtons(filteredSuggestions);
+    }
+  }, [optimizationTypes]);
+
   // Function to analyze code and update suggestions
   const analyzeSuggestions = () => {
     if (!monacoEditorRef.current) return;
@@ -582,40 +372,50 @@ function BaseMonacoEditor({
       // Skip empty lines
       if (line.trim() === '') return;
 
-      // Create a dummy suggestion with rotating types
-      const types: Array<
-        'completion' | 'bugfix' | 'optimization' | 'refactoring'
-      > = ['completion', 'bugfix', 'optimization', 'refactoring'];
-      const severities: Array<'info' | 'warning' | 'error'> = [
-        'info',
-        'warning',
-        'error',
+      // Only create suggestions for every 3rd line (for demonstration purposes)
+      if (index % 3 !== 0) return;
+
+      // Rotate between different types for demonstration
+      const typeOptions = [
+        'optimization',
+        'bugfix',
+        'refactoring',
+        'completion',
       ];
+      const type = typeOptions[index % typeOptions.length];
+      const severity = type === 'bugfix' ? 'warning' : 'info';
 
       dummySuggestions.push({
         id: `dummy-${index}`,
-        type: types[index % types.length],
+        type: type as SuggestionType,
         lineNumber: index + 1,
         code: line,
-        replacement: `// This is a placeholder replacement for line ${index + 1}`,
-        description: `Placeholder suggestion for demonstration purposes`,
-        severity: severities[index % severities.length],
+        replacement: `// This is a placeholder ${type} for line ${index + 1}`,
+        description: `This is a sample ${type} suggestion for demonstration`,
+        severity: severity,
       });
     });
 
-    // Store the suggestions
+    // Store all suggestions
     suggestionsRef.current = dummySuggestions;
+
+    // Filter based on optimization types
+    const filteredSuggestions = dummySuggestions.filter((suggestion) =>
+      optimizationTypesRef.current.includes(
+        suggestion.type === 'optimization' ? 'performance' : suggestion.type
+      )
+    );
 
     // Notify parent component of suggestions
     if (onSuggestionsChangeRef.current) {
-      onSuggestionsChangeRef.current(dummySuggestions);
+      onSuggestionsChangeRef.current(filteredSuggestions);
     }
 
     // Update editor decorations to show suggestion indicators
-    updateSuggestionDecorations(dummySuggestions);
+    updateSuggestionDecorations(filteredSuggestions);
 
     // Add inline buttons next to code lines with suggestions
-    addInlineButtons(dummySuggestions);
+    addInlineButtons(filteredSuggestions);
   };
 
   // Function to update editor decorations for suggestions
@@ -659,7 +459,7 @@ function BaseMonacoEditor({
     }
   };
 
-  // Function to add inline buttons next to code lines with suggestions
+  // Function to add inline buttons next to code lines with optimization or bugfix suggestions
   const addInlineButtons = (suggestions: CodeSuggestion[]) => {
     if (!monacoEditorRef.current) return;
 
@@ -671,14 +471,8 @@ function BaseMonacoEditor({
     const model = monacoEditorRef.current.getModel();
     if (!model) return;
 
-    // Filter suggestions to only include optimization and bugfix types
-    const filteredSuggestions = suggestions.filter(
-      (suggestion) =>
-        suggestion.type === 'optimization' || suggestion.type === 'bugfix'
-    );
-
     // Create inline buttons for filtered suggestions
-    const inlineDecorations = filteredSuggestions.map((suggestion) => {
+    const inlineDecorations = suggestions.map((suggestion) => {
       // Get the line content to determine where to place the button
       const lineContent = model.getLineContent(suggestion.lineNumber);
 
@@ -791,6 +585,14 @@ function BaseMonacoEditor({
   color: #ef4444; /* Red color for bugfix suggestions */
 }
 
+.suggestion-star-refactoring {
+  color: #3b82f6; /* Blue color for refactoring suggestions */
+}
+
+.suggestion-star-completion {
+  color: #8b5cf6; /* Purple color for completion suggestions */
+}
+
 @keyframes pulse {
   0% { opacity: 0.6; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.1); }
@@ -846,89 +648,10 @@ function BaseMonacoEditor({
 `;
       document.head.appendChild(styleElement);
 
-      // Add change event listener with optimized update handling
-      let changeTimeout: NodeJS.Timeout;
-      let analysisTimeout: NodeJS.Timeout;
-      let lastUpdateTime = Date.now();
-      let lastValue = valueRef.current;
-      let isTypingMode = false;
-      let bufferChanges = 0;
-
-      monacoEditorRef.current.onDidChangeModelContent((e) => {
-        if (!monacoEditorRef.current) return;
-
-        // Get current value
-        const newValue = monacoEditorRef.current.getValue();
-        valueRef.current = newValue;
-
-        // Clear previous timeouts
-        clearTimeout(changeTimeout);
-        clearTimeout(analysisTimeout);
-
-        // Calculate time since last update and change size
-        const now = Date.now();
-        const timeSinceLastUpdate = now - lastUpdateTime;
-        const changeSize = Math.abs(newValue.length - lastValue.length);
-
-        // Detect if user is typing (small changes in quick succession)
-        if (changeSize <= 3 && timeSinceLastUpdate < 300) {
-          isTypingMode = true;
-          bufferChanges++;
-        } else {
-          isTypingMode = false;
-          bufferChanges = 0;
-        }
-
-        // Dynamic debounce timing based on user interaction pattern
-        const debounceTime = isTypingMode
-          ? Math.min(100 + bufferChanges * 5, 500)
-          : // Gradual increase when typing
-            changeSize > 50
-            ? 250
-            : // Large changes (paste)
-              100; // Default
-
-        // Delay the onChange call to avoid excessive updates
-        changeTimeout = setTimeout(() => {
-          if (onChangeRef.current && newValue !== value) {
-            onChangeRef.current(newValue);
-            lastUpdateTime = Date.now();
-            lastValue = newValue;
-
-            // Reset buffer after sending update
-            bufferChanges = 0;
-          }
-        }, debounceTime);
-
-        // Delay code analysis to avoid analyzing during active typing
-        // Use a longer delay for analysis to ensure typing has paused
-        analysisTimeout = setTimeout(
-          () => {
-            analyzeSuggestions();
-          },
-          isTypingMode ? 1000 : 500
-        );
-      });
-
       // Handle clicks on the inline star buttons
       monacoEditorRef.current.onMouseDown((e) => {
-        // Check if we clicked on a glyph margin icon
-        if (
-          e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN
-        ) {
-          const lineNumber = e.target.position?.lineNumber;
-          if (!lineNumber) return;
-
-          const suggestion = suggestionsRef.current.find(
-            (s) => s.lineNumber === lineNumber
-          );
-          if (!suggestion) return;
-
-          // Show action menu for this suggestion
-          showActionMenu(suggestion, e.event.posx, e.event.posy);
-        }
         // Check if we clicked on an inline button (the star)
-        else if (
+        if (
           e.target.element?.classList.contains('suggestion-inline-star') ||
           (e.target.element?.parentElement &&
             e.target.element.parentElement.classList.contains(
@@ -983,39 +706,52 @@ function BaseMonacoEditor({
           return item;
         };
 
-        // Add "Apply Suggestion" option if there's a replacement
-        if (suggestion.replacement) {
-          menu.appendChild(
-            createMenuItem(
-              `Apply ${suggestion.type === 'optimization' ? 'Optimization' : 'Bug Fix'}`,
-              () => {
-                if (monacoEditorRef.current) {
-                  const model = monacoEditorRef.current.getModel();
-                  if (!model) return;
+        // Make action menu with specific options based on suggestion type
+        let actionText = 'Apply Suggestion';
+        let actionIcon = '✨';
 
-                  // Get the full line text and range
-                  const lineContent = model.getLineContent(
-                    suggestion.lineNumber
-                  );
-                  const range = new monaco.Range(
-                    suggestion.lineNumber,
-                    1,
-                    suggestion.lineNumber,
-                    lineContent.length + 1
-                  );
-
-                  // Apply the edit
-                  model.pushEditOperations(
-                    [],
-                    [{ range, text: suggestion.replacement! }],
-                    () => null
-                  );
-                }
-              },
-              suggestion.type === 'optimization' ? '🚀' : '🐛'
-            )
-          );
+        if (suggestion.type === 'optimization') {
+          actionText = 'Apply Optimization';
+          actionIcon = '🚀';
+        } else if (suggestion.type === 'bugfix') {
+          actionText = 'Fix Bug';
+          actionIcon = '🐛';
+        } else if (suggestion.type === 'refactoring') {
+          actionText = 'Apply Refactoring';
+          actionIcon = '🔄';
+        } else if (suggestion.type === 'completion') {
+          actionText = 'Complete Code';
+          actionIcon = '✨';
         }
+
+        menu.appendChild(
+          createMenuItem(
+            actionText,
+            () => {
+              if (monacoEditorRef.current && suggestion.replacement) {
+                const model = monacoEditorRef.current.getModel();
+                if (!model) return;
+
+                // Get the full line text and range
+                const lineContent = model.getLineContent(suggestion.lineNumber);
+                const range = new monaco.Range(
+                  suggestion.lineNumber,
+                  1,
+                  suggestion.lineNumber,
+                  lineContent.length + 1
+                );
+
+                // Apply the edit
+                model.pushEditOperations(
+                  [],
+                  [{ range, text: suggestion.replacement }],
+                  () => null
+                );
+              }
+            },
+            actionIcon
+          )
+        );
 
         // Add "View Details" option
         menu.appendChild(
@@ -1034,7 +770,7 @@ ${suggestion.code}
 
 Suggested replacement:
 ${suggestion.replacement || 'No specific replacement available'}
-        `;
+`;
               alert(suggestionDetails);
             },
             'ℹ️'
@@ -1051,16 +787,30 @@ ${suggestion.replacement || 'No specific replacement available'}
               // Logic to ignore this suggestion
               console.log('Ignoring suggestion:', suggestion.id);
 
-              // For demonstration, remove this specific star
-              if (inlineButtonsRef.current && monacoEditorRef.current) {
-                // Remove the suggestion from the current list
-                suggestionsRef.current = suggestionsRef.current.filter(
-                  (s) => s.id !== suggestion.id
-                );
+              // Remove the suggestion from the current list
+              suggestionsRef.current = suggestionsRef.current.filter(
+                (s) => s.id !== suggestion.id
+              );
 
-                // Update decorations
-                updateSuggestionDecorations(suggestionsRef.current);
-                addInlineButtons(suggestionsRef.current);
+              // Update decorations
+              updateSuggestionDecorations(
+                suggestionsRef.current.filter((s) =>
+                  optimizationTypesRef.current.includes(
+                    s.type === 'optimization' ? 'performance' : s.type
+                  )
+                )
+              );
+              addInlineButtons(
+                suggestionsRef.current.filter((s) =>
+                  optimizationTypesRef.current.includes(
+                    s.type === 'optimization' ? 'performance' : s.type
+                  )
+                )
+              );
+
+              // Notify parent component of suggestions
+              if (onSuggestionsChangeRef.current) {
+                onSuggestionsChangeRef.current(suggestionsRef.current);
               }
             },
             '✕'
@@ -1083,6 +833,34 @@ ${suggestion.replacement || 'No specific replacement available'}
           document.addEventListener('mousedown', closeOnClickOutside);
         }, 100);
       };
+
+      // Add change event listener with optimized update handling
+      let changeTimeout: NodeJS.Timeout;
+      let analysisTimeout: NodeJS.Timeout;
+
+      monacoEditorRef.current.onDidChangeModelContent((e) => {
+        if (!monacoEditorRef.current) return;
+
+        // Get current value
+        const newValue = monacoEditorRef.current.getValue();
+        valueRef.current = newValue;
+
+        // Clear previous timeouts
+        clearTimeout(changeTimeout);
+        clearTimeout(analysisTimeout);
+
+        // Delay the onChange call to avoid excessive updates
+        changeTimeout = setTimeout(() => {
+          if (onChangeRef.current && newValue !== value) {
+            onChangeRef.current(newValue);
+          }
+        }, 300);
+
+        // Delay code analysis to avoid analyzing during active typing
+        analysisTimeout = setTimeout(() => {
+          analyzeSuggestions();
+        }, 1000);
+      });
 
       // Initial analysis
       setTimeout(() => {
@@ -1110,36 +888,27 @@ ${suggestion.replacement || 'No specific replacement available'}
   // Update the editor value when it changes externally
   useEffect(() => {
     if (monacoEditorRef.current && value !== valueRef.current) {
-      // Only update if the difference is significant enough to warrant a refresh
-      // This prevents unnecessary updates during typing
-      if (
-        Math.abs(value.length - valueRef.current.length) > 5 ||
-        !value.includes(
-          valueRef.current.substring(0, Math.min(20, valueRef.current.length))
-        )
-      ) {
-        valueRef.current = value;
+      valueRef.current = value;
 
-        // Avoid cursor jumping by preserving selection
-        const selection = monacoEditorRef.current.getSelection();
-        const scrollPosition = {
-          scrollTop: monacoEditorRef.current.getScrollTop(),
-          scrollLeft: monacoEditorRef.current.getScrollLeft(),
-        };
+      // Avoid cursor jumping by preserving selection
+      const selection = monacoEditorRef.current.getSelection();
+      const scrollPosition = {
+        scrollTop: monacoEditorRef.current.getScrollTop(),
+        scrollLeft: monacoEditorRef.current.getScrollLeft(),
+      };
 
-        monacoEditorRef.current.setValue(value);
+      monacoEditorRef.current.setValue(value);
 
-        // Restore selection and scroll position
-        if (selection) {
-          monacoEditorRef.current.setSelection(selection);
-        }
-        monacoEditorRef.current.setScrollPosition(scrollPosition);
-
-        // Re-analyze after external value change
-        setTimeout(() => {
-          analyzeSuggestions();
-        }, 300);
+      // Restore selection and scroll position
+      if (selection) {
+        monacoEditorRef.current.setSelection(selection);
       }
+      monacoEditorRef.current.setScrollPosition(scrollPosition);
+
+      // Re-analyze after external value change
+      setTimeout(() => {
+        analyzeSuggestions();
+      }, 300);
     }
   }, [value]);
 
@@ -1155,6 +924,8 @@ export default memo(BaseMonacoEditor, (prevProps, nextProps) => {
     (prevProps.value === nextProps.value ||
       Math.abs(prevProps.value?.length - nextProps.value?.length) < 10) &&
     prevProps.theme === nextProps.theme &&
-    JSON.stringify(prevProps.options) === JSON.stringify(nextProps.options)
+    JSON.stringify(prevProps.options) === JSON.stringify(nextProps.options) &&
+    JSON.stringify(prevProps.optimizationTypes) ===
+      JSON.stringify(nextProps.optimizationTypes)
   );
 });
