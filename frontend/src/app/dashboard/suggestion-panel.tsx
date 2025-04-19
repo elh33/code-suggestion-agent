@@ -8,13 +8,15 @@ import { Sparkles, AlertTriangle, Bug, Rocket, RefreshCw } from 'lucide-react';
 interface SuggestionPanelProps {
   suggestions: CodeSuggestion[];
   onApplySuggestion: (suggestion: CodeSuggestion) => void;
-  onJumpToLine: (lineNumber: number) => void;
+  onJumpToLine?: (lineNumber: number) => void;
+  highlightOptimizationAndBugfix?: boolean;
 }
 
 export default function SuggestionPanel({
   suggestions,
   onApplySuggestion,
   onJumpToLine,
+  highlightOptimizationAndBugfix = false,
 }: SuggestionPanelProps) {
   const [filteredSuggestions, setFilteredSuggestions] =
     useState<CodeSuggestion[]>(suggestions);
@@ -30,6 +32,12 @@ export default function SuggestionPanel({
     }
     .suggestion-highlight {
       animation: suggestionHighlight 2s ease;
+    }
+    .suggestion-important {
+      border-left: 3px solid #10b981;
+    }
+    .suggestion-bugfix {
+      border-left: 3px solid #ef4444;
     }
   `;
     document.head.appendChild(style);
@@ -79,6 +87,27 @@ export default function SuggestionPanel({
     };
   }, []);
 
+  // Handle jump to line event from monaco-integration
+  useEffect(() => {
+    const handleJumpToLine = (event: CustomEvent) => {
+      const lineNumber = event.detail?.lineNumber;
+      if (lineNumber && onJumpToLine) {
+        onJumpToLine(lineNumber);
+      }
+    };
+
+    // Add event listener for jumpToLine event
+    window.addEventListener('jumpToLine', handleJumpToLine as EventListener);
+
+    // Clean up
+    return () => {
+      window.removeEventListener(
+        'jumpToLine',
+        handleJumpToLine as EventListener
+      );
+    };
+  }, [onJumpToLine]);
+
   // Update filtered suggestions when suggestions change
   useEffect(() => {
     if (activeFilter) {
@@ -96,9 +125,9 @@ export default function SuggestionPanel({
       case 'completion':
         return <Sparkles className="w-4 h-4" />;
       case 'bugfix':
-        return <Bug className="w-4 h-4" />;
+        return <Bug className="w-4 h-4 text-red-400" />;
       case 'optimization':
-        return <Rocket className="w-4 h-4" />;
+        return <Rocket className="w-4 h-4 text-green-400" />;
       case 'refactoring':
         return <RefreshCw className="w-4 h-4" />;
       default:
@@ -157,7 +186,16 @@ export default function SuggestionPanel({
             <div
               key={suggestion.id}
               id={`suggestion-${suggestion.id}`}
-              className="rounded-lg border border-gray-800 overflow-hidden"
+              className={`rounded-lg border border-gray-800 overflow-hidden ${
+                highlightOptimizationAndBugfix &&
+                suggestion.type === 'optimization'
+                  ? 'suggestion-important'
+                  : ''
+              } ${
+                highlightOptimizationAndBugfix && suggestion.type === 'bugfix'
+                  ? 'suggestion-bugfix'
+                  : ''
+              }`}
             >
               <div
                 className={`px-3 py-2 flex items-center justify-between ${getSeverityColor(suggestion.severity)} bg-gray-800/50`}
@@ -172,14 +210,16 @@ export default function SuggestionPanel({
                   </span>
                 </div>
                 <div className="flex space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs hover:bg-gray-700"
-                    onClick={() => onJumpToLine(suggestion.lineNumber)}
-                  >
-                    Go to
-                  </Button>
+                  {onJumpToLine && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs hover:bg-gray-700"
+                      onClick={() => onJumpToLine(suggestion.lineNumber)}
+                    >
+                      Go to
+                    </Button>
+                  )}
                   {suggestion.replacement && (
                     <Button
                       variant="ghost"
@@ -200,6 +240,14 @@ export default function SuggestionPanel({
               <div className="px-3 py-2 text-xs text-gray-400">
                 {suggestion.description}
               </div>
+              {suggestion.replacement && (
+                <div className="px-3 py-2 bg-gray-900/70 border-t border-gray-800">
+                  <div className="text-xs text-green-400 mb-1">Suggestion:</div>
+                  <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                    {suggestion.replacement}
+                  </pre>
+                </div>
+              )}
             </div>
           ))
         )}

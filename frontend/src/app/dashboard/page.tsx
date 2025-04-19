@@ -185,7 +185,7 @@ export default App;`,
   <title>EnsaAi App</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body>è
   <div id="root"></div>
   <script src="main.js"></script>
 </body>
@@ -678,69 +678,6 @@ export function debounce(func, wait) {
   return (
     <div className="h-screen flex flex-col bg-[#0a0a12] text-white overflow-hidden">
       {/* Header */}
-      <header className="h-14 border-b border-gray-800 flex items-center justify-between px-4">
-        <div className="flex items-center">
-          <div className="flex items-center mr-8">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mr-2">
-              <span className="text-white font-bold text-lg">E</span>
-            </div>
-            <span className="font-bold text-lg">EnsaAi</span>
-          </div>
-
-          <nav className="hidden md:flex space-x-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Projects
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Templates
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Community
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Docs
-            </Button>
-          </nav>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-400 hover:text-white"
-                >
-                  <Bell className="w-5 h-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Notifications</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Avatar className="w-8 h-8">
-            <AvatarImage src="/placeholder.svg" alt="User" />
-            <AvatarFallback className="bg-indigo-600">ME</AvatarFallback>
-          </Avatar>
-        </div>
-      </header>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}

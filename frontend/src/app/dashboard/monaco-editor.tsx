@@ -641,20 +641,19 @@ function BaseMonacoEditor({
         ),
         options: {
           isWholeLine: true,
-          glyphMarginClassName: `suggestion-icon ${color}`,
+          className: `suggestion-line-${suggestion.severity}`,
+          glyphMarginClassName: 'suggestion-icon',
           glyphMarginHoverMessage: {
-            value: `${icon} **${suggestion.type}**: ${suggestion.description}`,
+            value: `**${suggestion.type}**: ${suggestion.description}`,
           },
           stickiness:
             monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-          // Add a subtle background color to the line
-          className: `suggestion-line-${suggestion.severity}`,
         },
       };
     });
 
     // Apply decorations to editor
-    if (decorations.length > 0) {
+    if (decorations.length > 0 && monacoEditorRef.current) {
       suggestionWidgetsRef.current =
         monacoEditorRef.current.createDecorationsCollection(decorations);
     }
@@ -672,12 +671,18 @@ function BaseMonacoEditor({
     const model = monacoEditorRef.current.getModel();
     if (!model) return;
 
-    // Create inline buttons for each suggestion
-    const inlineDecorations = suggestions.map((suggestion) => {
+    // Filter suggestions to only include optimization and bugfix types
+    const filteredSuggestions = suggestions.filter(
+      (suggestion) =>
+        suggestion.type === 'optimization' || suggestion.type === 'bugfix'
+    );
+
+    // Create inline buttons for filtered suggestions
+    const inlineDecorations = filteredSuggestions.map((suggestion) => {
       // Get the line content to determine where to place the button
       const lineContent = model.getLineContent(suggestion.lineNumber);
 
-      // Create a button that appears at the end of the line
+      // Create a button that appears at the end of the line with type-specific class
       return {
         range: new monaco.Range(
           suggestion.lineNumber,
@@ -689,7 +694,7 @@ function BaseMonacoEditor({
           afterContentClassName: 'suggestion-inline-button',
           after: {
             content: ' ⭐', // Star icon
-            inlineClassName: 'suggestion-inline-star',
+            inlineClassName: `suggestion-inline-star suggestion-star-${suggestion.type}`,
           },
           stickiness:
             monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
@@ -759,17 +764,7 @@ function BaseMonacoEditor({
   height: 100%;
   font-size: 14px;
 }
-.suggestion-line-info {
-  background-color: rgba(59, 130, 246, 0.05);
-}
-.suggestion-line-warning {
-  background-color: rgba(245, 158, 11, 0.05);
-}
-.suggestion-line-error {
-  background-color: rgba(239, 68, 68, 0.05);
-}
 
-/* Inline button styling */
 .suggestion-inline-button {
   cursor: pointer;
 }
@@ -787,10 +782,29 @@ function BaseMonacoEditor({
   position: relative;
 }
 
+/* Add specific styling for different suggestion types */
+.suggestion-star-optimization {
+  color: #10b981; /* Green color for optimization suggestions */
+}
+
+.suggestion-star-bugfix {
+  color: #ef4444; /* Red color for bugfix suggestions */
+}
+
 @keyframes pulse {
   0% { opacity: 0.6; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.1); }
   100% { opacity: 0.6; transform: scale(1); }
+}
+
+.suggestion-line-info {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+.suggestion-line-warning {
+  background-color: rgba(245, 158, 11, 0.05);
+}
+.suggestion-line-error {
+  background-color: rgba(239, 68, 68, 0.05);
 }
 
 /* Action menu styling */
@@ -973,7 +987,7 @@ function BaseMonacoEditor({
         if (suggestion.replacement) {
           menu.appendChild(
             createMenuItem(
-              'Apply Suggestion',
+              `Apply ${suggestion.type === 'optimization' ? 'Optimization' : 'Bug Fix'}`,
               () => {
                 if (monacoEditorRef.current) {
                   const model = monacoEditorRef.current.getModel();
@@ -998,7 +1012,7 @@ function BaseMonacoEditor({
                   );
                 }
               },
-              '✓'
+              suggestion.type === 'optimization' ? '🚀' : '🐛'
             )
           );
         }
