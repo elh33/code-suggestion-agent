@@ -1,19 +1,28 @@
-import React from 'react';
+// /src/app/layout.tsx
+import '../styles/globals.css';
+import { Poppins } from 'next/font/google';
 
-const Layout = ({ children }) => {
-    return (
-        <div className="min-h-screen flex flex-col">
-            <header className="bg-gray-800 text-white p-4">
-                <h1 className="text-xl">Code Suggestion Agent</h1>
-            </header>
-            <main className="flex-grow p-4">
-                {children}
-            </main>
-            <footer className="bg-gray-800 text-white p-4 text-center">
-                <p>&copy; {new Date().getFullYear()} Code Suggestion Agent</p>
-            </footer>
-        </div>
-    );
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-poppins',
+});
+
+export const metadata = {
+  title: 'Code Suggestion Agent',
+  description: 'Modern frontend using Poppins, TailwindCSS, and clean UI/UX',
 };
 
-export default Layout;
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className={poppins.variable}>
+      <body className="font-poppins bg-background text-foreground min-h-screen">
+        {children}
+      </body>
+    </html>
+  );
+}
