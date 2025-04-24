@@ -4,19 +4,73 @@ import type React from 'react';
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Github, Mail, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import axios from 'axios';
 
 export default function SignupPage() {
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    // Validation
+    if (!username || !email || !password || !confirmPassword) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (!acceptTerms) {
+      setError('Please accept the terms and conditions');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Register user
+      const response = await axios.post('http://localhost:8000/api/users', {
+        username,
+        email,
+        password,
+      });
+
+      if (response.data) {
+        setSuccess('Account created successfully! Redirecting to login...');
+
+        // Redirect to login page after 2 seconds
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      }
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(
+        err.response?.data?.detail ||
+          err.response?.data?.message ||
+          'An error occurred during registration. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,6 +141,20 @@ export default function SignupPage() {
                 </p>
               </div>
 
+              {/* Success message */}
+              {success && (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-md text-green-300 text-sm">
+                  {success}
+                </div>
+              )}
+
+              {/* Error message */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-300 text-sm">
+                  {error}
+                </div>
+              )}
+
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-700"></div>
@@ -96,17 +164,17 @@ export default function SignupPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <label
-                    htmlFor="name"
+                    htmlFor="username"
                     className="text-sm font-medium text-gray-300"
                   >
-                    Full Name
+                    Username
                   </label>
                   <Input
-                    id="name"
+                    id="username"
                     type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    placeholder="johndoe"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     required
                     className="bg-gray-800/50 border-gray-700 text-white focus:border-indigo-500 focus:ring-indigo-500"
                   />
@@ -166,12 +234,37 @@ export default function SignupPage() {
                   />
                 </div>
 
+                {/* Terms acceptance checkbox */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="acceptTerms"
+                    checked={acceptTerms}
+                    onCheckedChange={(checked) =>
+                      setAcceptTerms(checked === true)
+                    }
+                    className="data-[state=checked]:bg-indigo-500"
+                  />
+                  <label
+                    htmlFor="acceptTerms"
+                    className="text-sm text-gray-400"
+                  >
+                    I accept the terms and conditions
+                  </label>
+                </div>
+
                 <Button
                   type="submit"
+                  disabled={loading || success !== null}
                   className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Account
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  {loading
+                    ? 'Creating Account...'
+                    : success
+                      ? 'Account Created!'
+                      : 'Create Account'}
+                  {!loading && !success && (
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  )}
                 </Button>
               </form>
 

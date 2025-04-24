@@ -1,7 +1,8 @@
 'use client';
 
 import type React from 'react';
-
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import {
   FileCode,
@@ -80,6 +81,7 @@ export default function DashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(true);
   const [currentFile, setCurrentFile] = useState<string>('main.js');
+  const { isAuthenticated, username, userId } = useAuth();
   const [fileContents, setFileContents] = useState<FileContents>({});
   const [expandedItems, setExpandedItems] = useState<ExpandedItems>({
     4: true,
@@ -88,6 +90,8 @@ export default function DashboardPage() {
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(
     null
   );
+  const router = useRouter();
+
   const [newItemName, setNewItemName] = useState<string>('');
   const [newItemParentId, setNewItemParentId] = useState<number | null>(null);
   const [nextId, setNextId] = useState<number>(9); // For generating new file/folder IDs
@@ -256,6 +260,13 @@ export function debounce(func, wait) {
 
     setFileContents(initialContents);
   }, []);
+
+  // Add this useEffect after your other useEffect hooks
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
 
   // Add this function to enhance the language detection with more file extensions
   // Replace the existing getFileLanguage function with this enhanced version:
@@ -678,6 +689,32 @@ export function debounce(func, wait) {
   return (
     <div className="h-screen flex flex-col bg-[#0a0a12] text-white overflow-hidden">
       {/* Header */}
+      {/* Header */}
+      <header className="h-14 border-b border-gray-800 flex items-center justify-between px-4">
+        <div className="flex items-center">
+          <h1 className="text-xl font-semibold">EnsaAi Code Studio</h1>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-gray-400 hover:text-white"
+          >
+            <Bell className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center space-x-2">
+            <Avatar className="w-8 h-8">
+              <AvatarImage
+                src={`https://avatar.vercel.sh/${username || 'user'}.png`}
+              />
+              <AvatarFallback>
+                {username?.slice(0, 2).toUpperCase() || 'US'}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium">{username || 'User'}</span>
+          </div>
+        </div>
+      </header>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}

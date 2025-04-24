@@ -4,20 +4,36 @@ import type React from 'react';
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Github, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const { login, error: authError, loading } = useAuth();
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log({ email, password, rememberMe });
+    setLocalError('');
+    if (!email || !password) {
+      setLocalError('Please fill in all fields');
+      return;
+    }
+
+    const success = await login({ email, password });
+    if (success) {
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+      }
+      router.push('/dashboard'); // Redirect to dashboard on success
+    }
   };
 
   return (
@@ -639,6 +655,13 @@ export default function LoginPage() {
                 </p>
               </div>
 
+              {/* Add error message display */}
+              {(localError || authError) && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-300 text-sm">
+                  {localError || authError}
+                </div>
+              )}
+
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-700"></div>
@@ -684,12 +707,28 @@ export default function LoginPage() {
                   />
                 </div>
 
+                {/* Add remember me checkbox */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rememberMe"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) =>
+                      setRememberMe(checked === true)
+                    }
+                    className="data-[state=checked]:bg-indigo-500"
+                  />
+                  <label htmlFor="rememberMe" className="text-sm text-gray-400">
+                    Remember me
+                  </label>
+                </div>
+
                 <Button
                   type="submit"
+                  disabled={loading}
                   className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
                 >
-                  Login
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  {loading ? 'Logging in...' : 'Login'}
+                  {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </form>
             </div>
