@@ -80,13 +80,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(true);
-  const [currentFile, setCurrentFile] = useState<string>('main.js');
+  const [currentFile, setCurrentFile] = useState<string>('main.py');
   const { isAuthenticated, username, userId } = useAuth();
   const [fileContents, setFileContents] = useState<FileContents>({});
-  const [expandedItems, setExpandedItems] = useState<ExpandedItems>({
-    4: true,
-    7: true,
-  }); // Track expanded folders
+  const [expandedItems, setExpandedItems] = useState<ExpandedItems>({});
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(
     null
   );
@@ -97,28 +94,9 @@ export default function DashboardPage() {
   const [nextId, setNextId] = useState<number>(9); // For generating new file/folder IDs
   const [suggestions, setSuggestions] = useState<CodeSuggestion[]>([]);
 
-  // Simulated files for the file explorer - now with state
+  // Update the files array to only include main.py
   const [files, setFiles] = useState<FileSystemItem[]>([
-    { id: 1, name: 'main.js', type: 'file', language: 'javascript' },
-    { id: 2, name: 'index.html', type: 'file', language: 'html' },
-    { id: 3, name: 'styles.css', type: 'file', language: 'css' },
-    {
-      id: 4,
-      name: 'components',
-      type: 'folder',
-      children: [
-        { id: 5, name: 'Button.jsx', type: 'file', language: 'javascript' },
-        { id: 6, name: 'Card.jsx', type: 'file', language: 'javascript' },
-      ],
-    },
-    {
-      id: 7,
-      name: 'utils',
-      type: 'folder',
-      children: [
-        { id: 8, name: 'helpers.js', type: 'file', language: 'javascript' },
-      ],
-    },
+    { id: 1, name: 'main.py', type: 'file', language: 'python' },
   ]);
 
   // Simulated AI suggestions
@@ -149,113 +127,40 @@ export default function DashboardPage() {
   };
 
   // Initialize file contents
+  // Initialize file contents with Python file
   useEffect(() => {
     const initialContents: FileContents = {
-      'main.js': `// Main application file
-import { useState, useEffect } from 'react';
+      'main.py': `"""
+main.py
+Created on ${new Date().toLocaleDateString()}
 
-function App() {
-  const [data, setData] = useState([]);
-  
-  useEffect(() => {
-    // Fetch data from API
-    fetch('https://api.example.com/data')
-      .then(response => response.json())
-      .then(result => setData(result));
-  }, []);
-  
-  function calculateTotal(items) {
-    let total = 0;
-    for (let i = 0; i < items.length; i++) {
-      total += items[i].price;
-    }
-    return total;
-  }
-  
-  return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Total: {calculateTotal(data)}</p>
-    </div>
-  );
-}
+Description:
+    Main Python script for the application
+"""
 
-export default App;`,
-      'index.html': `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EnsaAi App</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>è
-  <div id="root"></div>
-  <script src="main.js"></script>
-</body>
-</html>`,
-      'styles.css': `body {
-  font-family: 'Inter', sans-serif;
-  margin: 0;
-  padding: 0;
-  background-color: #f5f5f5;
-}
+def hello():
+    """Print a greeting message."""
+    print("Hello, Python world!")
 
-#root {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
+def calculate_sum(numbers):
+    """Calculate the sum of a list of numbers."""
+    return sum(numbers)
 
-h1 {
-  color: #333;
-}`,
-      'Button.jsx': `import React from 'react';
+def main():
+    """Main function that runs when the script is executed."""
+    hello()
+    
+    # Example calculation
+    numbers = [1, 2, 3, 4, 5]
+    result = calculate_sum(numbers)
+    print(f"The sum of {numbers} is {result}")
+    
+    # Your code goes here
+    print("Program completed successfully!")
 
-export default function Button({ children, onClick, variant = 'primary' }) {
-  return (
-    <button 
-      className={\`btn btn-\${variant}\`} 
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}`,
-      'Card.jsx': `import React from 'react';
-
-export default function Card({ title, children }) {
-  return (
-    <div className="card">
-      {title && <div className="card-header">{title}</div>}
-      <div className="card-body">
-        {children}
-      </div>
-    </div>
-  );
-}`,
-      'helpers.js': `// Utility functions
-
-export function formatDate(date) {
-  return new Date(date).toLocaleDateString();
-}
-
-export function truncateText(text, maxLength = 100) {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
-}
-
-export function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}`,
+if __name__ == "__main__":
+    main()
+`,
     };
 
     setFileContents(initialContents);
@@ -268,8 +173,51 @@ export function debounce(func, wait) {
     }
   }, [isAuthenticated, router]);
 
-  // Add this function to enhance the language detection with more file extensions
-  // Replace the existing getFileLanguage function with this enhanced version:
+ 
+
+  const executePythonCode = async (code: string): Promise<string> => {
+    try {
+      const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          language: 'python',
+          version: '3.10',
+          files: [
+            {
+              name: 'main.py',
+              content: code,
+            },
+          ],
+          stdin: '',
+          args: [],
+          compile_timeout: 10000,
+          run_timeout: 5000,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return `API Error: ${response.statusText}`;
+      }
+
+      // The Piston API returns both stdout and stderr
+      const output = result.run.output || '';
+      const error = result.run.stderr || '';
+
+      if (error) {
+        return `Error:\n${error}`;
+      }
+
+      return output || 'Code executed successfully with no output.';
+    } catch (error) {
+      console.error('Error executing Python code:', error);
+      return `Execution error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  };
 
   // Enhanced language detection based on file extension
   const getFileLanguage = (filename: string): string => {
@@ -500,10 +448,13 @@ export function debounce(func, wait) {
     if (!newItemName) return;
 
     if (newItemType === 'file') {
-      const newFileName = newItemName.includes('.')
+      // Ensure it has a .py extension
+      const newFileName = newItemName.toLowerCase().endsWith('.py')
         ? newItemName
-        : `${newItemName}.js`;
-      const fileLanguage = getFileLanguage(newFileName);
+        : `${newItemName}.py`;
+
+      // Always set language to python
+      const fileLanguage = 'python';
 
       const newItem: FileItem = {
         id: nextId,
@@ -512,10 +463,24 @@ export function debounce(func, wait) {
         language: fileLanguage,
       };
 
-      // Initialize content for new file
+      // Initialize content for new Python file with template
       setFileContents((prev) => ({
         ...prev,
-        [newFileName]: `// ${newFileName}\n// Created on ${new Date().toLocaleString()}\n\n`,
+        [newFileName]: `"""
+${newFileName}
+Created on ${new Date().toLocaleString()}
+
+Description:
+    Python script for data processing
+"""
+
+def main():
+    """Main function."""
+    print("Hello from Python!")
+
+if __name__ == "__main__":
+    main()
+`,
       }));
 
       // Add to root or to a folder
@@ -551,7 +516,11 @@ export function debounce(func, wait) {
           [newItemParentId]: true,
         }));
       }
+
+      // Set this as the current file
+      setCurrentFile(newFileName);
     } else if (newItemType === 'folder') {
+      // Folder creation remains the same
       const newItem: FolderItem = {
         id: nextId,
         name: newItemName,
@@ -699,9 +668,7 @@ export function debounce(func, wait) {
             variant="ghost"
             size="icon"
             className="text-gray-400 hover:text-white"
-          >
-            <Bell className="w-5 h-5" />
-          </Button>
+          ></Button>
           <div className="flex items-center space-x-2">
             <Avatar className="w-8 h-8">
               <AvatarImage
@@ -771,11 +738,71 @@ export function debounce(func, wait) {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
                         <DialogHeader>
-                          <DialogTitle>Create New File</DialogTitle>
+                          <DialogTitle>
+                            Create New{' '}
+                            {newItemType === 'file' ? 'Python File' : 'Folder'}
+                          </DialogTitle>
                           <DialogDescription className="text-gray-400">
-                            Enter a name for the new file
+                            Enter a name for the new {newItemType}
                           </DialogDescription>
                         </DialogHeader>
+                        <div className="py-4">
+                          <Input
+                            placeholder={
+                              newItemType === 'file'
+                                ? 'filename.py'
+                                : 'folder-name'
+                            }
+                            value={newItemName}
+                            onChange={(e) => setNewItemName(e.target.value)}
+                            className="bg-gray-800 border-gray-700 text-white"
+                            autoFocus
+                          />
+                          {newItemType === 'file' &&
+                            !newItemName.toLowerCase().endsWith('.py') &&
+                            newItemName.includes('.') && (
+                              <p className="text-red-400 text-xs mt-1">
+                                Only Python (.py) files are supported
+                              </p>
+                            )}
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setNewItemType(null);
+                              setNewItemParentId(null);
+                            }}
+                            className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleCreateItem}
+                            disabled={
+                              newItemType === 'file' &&
+                              newItemName.includes('.') &&
+                              !newItemName.toLowerCase().endsWith('.py')
+                            }
+                          >
+                            Create
+                          </Button>
+                        </DialogFooter>
+                        <div className="py-4">
+                          <Input
+                            placeholder="filename.py"
+                            value={newItemName}
+                            onChange={(e) => setNewItemName(e.target.value)}
+                            className="bg-gray-800 border-gray-700 text-white"
+                            autoFocus
+                          />
+                          {!newItemName.toLowerCase().endsWith('.py') &&
+                            newItemName.includes('.') && (
+                              <p className="text-red-400 text-xs mt-1">
+                                Only Python (.py) files are supported
+                              </p>
+                            )}
+                        </div>
                         <div className="py-4">
                           <Input
                             placeholder="filename.js"
@@ -816,19 +843,25 @@ export function debounce(func, wait) {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
                         <DialogHeader>
-                          <DialogTitle>Create New Folder</DialogTitle>
+                          <DialogTitle>Create New Python File</DialogTitle>
                           <DialogDescription className="text-gray-400">
-                            Enter a name for the new folder
+                            Enter a name for the new Python file
                           </DialogDescription>
                         </DialogHeader>
                         <div className="py-4">
                           <Input
-                            placeholder="folder-name"
+                            placeholder="filename.py"
                             value={newItemName}
                             onChange={(e) => setNewItemName(e.target.value)}
                             className="bg-gray-800 border-gray-700 text-white"
                             autoFocus
                           />
+                          {!newItemName.toLowerCase().endsWith('.py') &&
+                            newItemName.includes('.') && (
+                              <p className="text-red-400 text-xs mt-1">
+                                Only Python (.py) files are supported
+                              </p>
+                            )}
                         </div>
                         <DialogFooter>
                           <Button
@@ -838,7 +871,15 @@ export function debounce(func, wait) {
                           >
                             Cancel
                           </Button>
-                          <Button onClick={handleCreateItem}>Create</Button>
+                          <Button
+                            onClick={handleCreateItem}
+                            disabled={
+                              newItemName.includes('.') &&
+                              !newItemName.toLowerCase().endsWith('.py')
+                            }
+                          >
+                            Create
+                          </Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -903,8 +944,11 @@ export function debounce(func, wait) {
                       variant="ghost"
                       size="icon"
                       className="text-gray-400 hover:text-white"
+                      onClick={() => {
+                        router.push('/settings');
+                      }}
                     >
-                      <Settings className="w-5 h-5" />
+                      <Settings className="w-5 h-5 text-white" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side={sidebarCollapsed ? 'right' : 'top'}>
@@ -928,18 +972,12 @@ export function debounce(func, wait) {
                 variant="ghost"
                 size="sm"
                 className="text-gray-400 hover:text-white"
-              >
-                <Save className="w-4 h-4 mr-1" />
-                Save
-              </Button>
+              ></Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-gray-400 hover:text-white"
-              >
-                <Share2 className="w-4 h-4 mr-1" />
-                Share
-              </Button>
+              ></Button>
             </div>
           </div>
 
@@ -952,6 +990,7 @@ export function debounce(func, wait) {
                 language={getCurrentFileLanguage()}
                 onChange={handleEditorChange}
                 onSuggestionsChange={handleSuggestionsChange}
+                onExecuteCode={executePythonCode}
               />
             </div>
 

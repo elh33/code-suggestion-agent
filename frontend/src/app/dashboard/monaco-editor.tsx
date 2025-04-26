@@ -1,6 +1,12 @@
 'use client';
 
-import { useRef, useEffect, memo } from 'react';
+import {
+  useRef,
+  useEffect,
+  memo,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import * as monaco from 'monaco-editor';
 
 // Import the language data and suggestion types
@@ -11,6 +17,15 @@ import {
   getSeverityColor,
 } from './suggestion-types';
 
+// Define editor ref type for external use
+export type MonacoEditorRef = {
+  createPythonFile: (filename: string) => {
+    success: boolean;
+    message?: string;
+  };
+  getCurrentValue: () => string;
+};
+
 interface MonacoEditorProps {
   language?: string;
   value: string;
@@ -19,266 +34,301 @@ interface MonacoEditorProps {
   options?: monaco.editor.IStandaloneEditorConstructionOptions;
   onSuggestionsChange?: (suggestions: CodeSuggestion[]) => void;
   optimizationTypes?: string[]; // New prop for filtering optimization types
+  filepath?: string; // New prop for file path
+  onEditorReady?: (editorAPI: MonacoEditorRef) => void;
 }
 
-// Function to get language-specific keywords and builtins
-function getLanguageKeywords(language: string) {
-  switch (language) {
-    case 'javascript':
-      return {
-        keywords: [
-          'function',
-          'var',
-          'let',
-          'const',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'class',
-          'extends',
-          'new',
-          'this',
-          'import',
-          'export',
-        ],
-        builtins: [
-          'console.log',
-          'Math.random',
-          'Date',
-          'Array',
-          'Object',
-          'String',
-          'Number',
-          'Boolean',
-        ],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '===',
-          '!=',
-          '!==',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '&&',
-          '||',
-          '!',
-          '?',
-        ],
-      };
-    case 'typescript':
-      return {
-        keywords: [
-          'function',
-          'var',
-          'let',
-          'const',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'class',
-          'extends',
-          'new',
-          'this',
-          'import',
-          'export',
-          'type',
-          'interface',
-        ],
-        builtins: [
-          'console.log',
-          'Math.random',
-          'Date',
-          'Array',
-          'Object',
-          'String',
-          'Number',
-          'Boolean',
-        ],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '===',
-          '!=',
-          '!==',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '&&',
-          '||',
-          '!',
-          '?',
-        ],
-      };
-    case 'python':
-      return {
-        keywords: [
-          'def',
-          'if',
-          'else',
-          'for',
-          'while',
-          'return',
-          'class',
-          'import',
-          'from',
-          'as',
-          'try',
-          'except',
-          'finally',
-          'with',
-          'lambda',
-          'global',
-          'nonlocal',
-        ],
-        builtins: [
-          'print',
-          'len',
-          'range',
-          'list',
-          'dict',
-          'set',
-          'tuple',
-          'str',
-          'int',
-          'float',
-          'bool',
-        ],
-        operators: [
-          '+',
-          '-',
-          '*',
-          '/',
-          '=',
-          '==',
-          '!=',
-          '>',
-          '<',
-          '>=',
-          '<=',
-          'and',
-          'or',
-          'not',
-          'in',
-          'is',
-        ],
-      };
-    default:
-      return { keywords: [], builtins: [], operators: [] };
+// Python file extension validation
+function isPythonFile(filepath: string | undefined): boolean {
+  if (!filepath) return true; // Default to true if no filepath provided
+  return filepath.toLowerCase().endsWith('.py');
+}
+
+// Ensure Python extension on filenames
+function ensurePythonExtension(filepath: string | undefined): string {
+  if (!filepath) return 'untitled.py';
+  if (filepath.toLowerCase().endsWith('.py')) return filepath;
+  return `${filepath}.py`;
+}
+
+// Validate Python filenames
+function validatePythonFilename(filename: string): {
+  valid: boolean;
+  message?: string;
+} {
+  if (!filename) {
+    return { valid: false, message: 'Filename cannot be empty' };
+  }
+
+  // Check for invalid characters in filenames
+  const invalidChars = /[<>:"/\\|?*\x00-\x1F]/g;
+  if (invalidChars.test(filename)) {
+    return {
+      valid: false,
+      message: 'Filename contains invalid characters',
+    };
+  }
+
+  return { valid: true };
+}
+
+// Get Python template based on file type
+function getPythonTemplate(filename: string): string {
+  const baseTemplate = `"""
+${filename}
+Created: ${new Date().toLocaleDateString()}
+
+Description:
+    Python file for code operations
+"""
+
+`;
+
+  // Different templates based on filename patterns
+  if (filename.includes('test')) {
+    return (
+      baseTemplate +
+      `import unittest
+
+class Test${filename.replace(/test_|\.py/g, '').replace(/\b\w/g, (c) => c.toUpperCase())}(unittest.TestCase):
+    def setUp(self):
+        """Set up test fixtures, if any."""
+        pass
+        
+    def tearDown(self):
+        """Tear down test fixtures, if any."""
+        pass
+        
+    def test_example(self):
+        """Test example, will always pass."""
+        self.assertEqual(1, 1)
+        
+if __name__ == '__main__':
+    unittest.main()
+`
+    );
+  } else if (filename.includes('main')) {
+    return (
+      baseTemplate +
+      `def main():
+    """Main entry point of the app."""
+    print("Hello, Python World!")
+
+if __name__ == "__main__":
+    # This is executed when run from the command line
+    main()
+`
+    );
+  } else {
+    return (
+      baseTemplate +
+      `def hello():
+    """Simple function that returns a greeting."""
+    return "Hello, Python World!"
+
+# Add your code here
+if __name__ == "__main__":
+    print(hello())
+`
+    );
   }
 }
 
-// Register language features
-function registerLanguageFeatures(monaco: typeof import('monaco-editor')) {
-  // Register custom language features for languages that need enhancement
-  const languages = [
-    'javascript',
-    'typescript',
-    'python',
-    'html',
-    'css',
-    'php',
-    'java',
-    'c',
-    'cpp',
-  ];
+// Function to get Python-specific keywords and builtins
+function getPythonKeywords() {
+  return {
+    keywords: [
+      'def',
+      'class',
+      'if',
+      'else',
+      'elif',
+      'for',
+      'while',
+      'return',
+      'import',
+      'from',
+      'as',
+      'try',
+      'except',
+      'finally',
+      'with',
+      'lambda',
+      'global',
+      'nonlocal',
+      'yield',
+      'async',
+      'await',
+      'break',
+      'continue',
+      'pass',
+      'None',
+      'True',
+      'False',
+      'and',
+      'or',
+      'not',
+      'is',
+      'in',
+    ],
+    builtins: [
+      'print',
+      'len',
+      'range',
+      'list',
+      'dict',
+      'set',
+      'tuple',
+      'str',
+      'int',
+      'float',
+      'bool',
+      'map',
+      'filter',
+      'sum',
+      'min',
+      'max',
+      'open',
+      'zip',
+      'enumerate',
+      'sorted',
+      'abs',
+      'all',
+      'any',
+      'chr',
+      'dir',
+      'divmod',
+      'hash',
+      'hex',
+      'id',
+      'input',
+      'isinstance',
+      'issubclass',
+      'iter',
+      'next',
+      'oct',
+      'ord',
+      'pow',
+      'repr',
+      'round',
+      'slice',
+      'vars',
+      'type',
+      'super',
+    ],
+    operators: [
+      '+',
+      '-',
+      '*',
+      '/',
+      '=',
+      '==',
+      '!=',
+      '>',
+      '<',
+      '>=',
+      '<=',
+      'and',
+      'or',
+      'not',
+      'in',
+      'is',
+      '%',
+      '**',
+      '//',
+      '+=',
+      '-=',
+      '*=',
+      '/=',
+      '%=',
+      '**=',
+      '//=',
+    ],
+  };
+}
 
-  languages.forEach((lang) => {
-    const { keywords, builtins, operators } = getLanguageKeywords(lang);
+// Register Python language features
+function registerPythonFeatures(monaco: typeof import('monaco-editor')) {
+  const { keywords, builtins, operators } = getPythonKeywords();
 
-    if (keywords.length > 0 || builtins.length > 0) {
-      monaco.languages.registerCompletionItemProvider(lang, {
-        provideCompletionItems: (model, position) => {
-          const word = model.getWordUntilPosition(position);
-          const range = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
+  // Register Python completion provider
+  monaco.languages.registerCompletionItemProvider('python', {
+    provideCompletionItems: (model, position) => {
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
 
-          const keywordSuggestions = keywords.map((keyword) => ({
-            label: keyword,
-            kind: monaco.languages.CompletionItemKind.Keyword,
-            insertText: keyword,
-            range,
-          }));
+      const keywordSuggestions = keywords.map((keyword) => ({
+        label: keyword,
+        kind: monaco.languages.CompletionItemKind.Keyword,
+        insertText: keyword,
+        range,
+      }));
 
-          const builtinSuggestions = builtins.map((builtin) => ({
-            label: builtin,
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: builtin,
-            range,
-          }));
+      const builtinSuggestions = builtins.map((builtin) => ({
+        label: builtin,
+        kind: monaco.languages.CompletionItemKind.Function,
+        insertText: builtin,
+        range,
+      }));
 
-          return {
-            suggestions: [...keywordSuggestions, ...builtinSuggestions],
-          };
-        },
-      });
-    }
+      return {
+        suggestions: [...keywordSuggestions, ...builtinSuggestions],
+      };
+    },
   });
 
-  // Add hover providers for keywords
-  languages.forEach((lang) => {
-    const { keywords, builtins } = getLanguageKeywords(lang);
+  // Add Python hover provider
+  monaco.languages.registerHoverProvider('python', {
+    provideHover: (model, position) => {
+      const word = model.getWordAtPosition(position);
 
-    monaco.languages.registerHoverProvider(lang, {
-      provideHover: (model, position) => {
-        const word = model.getWordAtPosition(position);
+      if (!word) return null;
 
-        if (!word) return null;
+      const isKeyword = keywords.includes(word.word);
+      const isBuiltin = builtins.includes(word.word);
 
-        const isKeyword = keywords.includes(word.word);
-        const isBuiltin = builtins.includes(word.word);
+      if (isKeyword) {
+        return {
+          contents: [
+            { value: `**${word.word}**` },
+            { value: `Python keyword` },
+          ],
+        };
+      }
 
-        if (isKeyword) {
-          return {
-            contents: [
-              { value: `**${word.word}**` },
-              { value: `Language keyword in ${lang}` },
-            ],
-          };
-        }
+      if (isBuiltin) {
+        return {
+          contents: [
+            { value: `**${word.word}**` },
+            { value: `Python built-in function or object` },
+          ],
+        };
+      }
 
-        if (isBuiltin) {
-          return {
-            contents: [
-              { value: `**${word.word}**` },
-              { value: `Built-in function or object in ${lang}` },
-            ],
-          };
-        }
-
-        return null;
-      },
-    });
+      return null;
+    },
   });
 }
 
-function BaseMonacoEditor({
-  language = 'javascript',
-  value,
-  onChange,
-  theme = 'vs-dark',
-  options = {},
-  onSuggestionsChange,
-  optimizationTypes = ['performance', 'bugfix', 'refactoring', 'completion'],
-}: MonacoEditorProps) {
+const BaseMonacoEditor = forwardRef(function BaseMonacoEditor(
+  {
+    language = 'python', // Default to Python
+    value,
+    onChange,
+    theme = 'vs-dark',
+    options = {},
+    onSuggestionsChange,
+    optimizationTypes = ['performance', 'bugfix', 'refactoring', 'completion'],
+    filepath,
+    onEditorReady,
+  }: MonacoEditorProps,
+  ref
+) {
   // DOM element reference
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -292,10 +342,11 @@ function BaseMonacoEditor({
 
   // Store values in refs to avoid re-renders
   const valueRef = useRef(value);
-  const languageRef = useRef(language);
+  const languageRef = useRef('python'); // Force Python language
   const onChangeRef = useRef(onChange);
   const onSuggestionsChangeRef = useRef(onSuggestionsChange);
   const optimizationTypesRef = useRef(optimizationTypes);
+  const filepathRef = useRef(filepath);
 
   // Store suggestions
   const suggestionsRef = useRef<CodeSuggestion[]>([]);
@@ -304,25 +355,187 @@ function BaseMonacoEditor({
   const inlineButtonsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
 
+  // Create a Python file with template
+  const createPythonFile = (
+    filename: string
+  ): { success: boolean; message?: string } => {
+    // Validate the filename
+    const validation = validatePythonFilename(filename);
+    if (!validation.valid) {
+      return { success: false, message: validation.message };
+    }
+
+    // Ensure it has .py extension
+    const pythonFilename = ensurePythonExtension(filename);
+
+    try {
+      // Get appropriate template based on filename
+      const pythonTemplate = getPythonTemplate(pythonFilename);
+
+      // Create file URI
+      const fileUri = monaco.Uri.parse(
+        `file:///${pythonFilename.replace(/\\/g, '/')}`
+      );
+
+      // Check if a model already exists
+      const existingModel = monaco.editor.getModel(fileUri);
+
+      if (existingModel) {
+        // Model exists - update content and switch to it
+        existingModel.setValue(pythonTemplate);
+
+        if (monacoEditorRef.current) {
+          monacoEditorRef.current.setModel(existingModel);
+        }
+      } else {
+        // Create new model with template
+        const newModel = monaco.editor.createModel(
+          pythonTemplate,
+          'python',
+          fileUri
+        );
+
+        if (monacoEditorRef.current) {
+          // Get current model before switching
+          const currentModel = monacoEditorRef.current.getModel();
+
+          // Switch to new model
+          monacoEditorRef.current.setModel(newModel);
+
+          // Handle old model cleanup
+          if (currentModel && !currentModel.isDisposed()) {
+            // Only dispose if no other editors are using it
+            const otherModels = monaco.editor.getModels();
+            const isShared = otherModels.some(
+              (m) =>
+                m !== currentModel &&
+                m.uri.toString() === currentModel.uri.toString()
+            );
+
+            if (!isShared) {
+              currentModel.dispose();
+            }
+          }
+        }
+      }
+
+      // Update internal state
+      valueRef.current = pythonTemplate;
+      filepathRef.current = pythonFilename;
+
+      // Notify parent component if needed
+      if (onChangeRef.current) {
+        onChangeRef.current(pythonTemplate);
+      }
+
+      // Run analysis on the new file
+      analyzeSuggestions();
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error creating Python file:', error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create Python file',
+      };
+    }
+  };
+
+  // Get current editor content
+  const getCurrentValue = (): string => {
+    if (monacoEditorRef.current) {
+      return monacoEditorRef.current.getValue();
+    }
+    return valueRef.current;
+  };
+
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    createPythonFile,
+    getCurrentValue,
+  }));
+
   // Update refs when props change
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
 
   useEffect(() => {
-    languageRef.current = language;
+    // Always force Python language for any file
+    languageRef.current = 'python';
 
     // Update language model if editor already exists
     if (monacoEditorRef.current && initializedRef.current) {
       const model = monacoEditorRef.current.getModel();
       if (model) {
-        monaco.editor.setModelLanguage(model, language);
-
+        monaco.editor.setModelLanguage(model, 'python');
         // Re-analyze code when language changes
         analyzeSuggestions();
       }
     }
   }, [language]);
+
+  useEffect(() => {
+    // Update filepath and ensure it has .py extension
+    filepathRef.current = filepath;
+
+    // If the filepath is not a Python file, log a warning
+    if (filepath && !isPythonFile(filepath)) {
+      console.warn(
+        'Non-Python file detected. File will be treated as Python file.'
+      );
+    }
+
+    // If editor is initialized and filepath changes, update the model
+    if (monacoEditorRef.current && initializedRef.current && filepath) {
+      const pythonFilepath = ensurePythonExtension(filepath);
+      const fileUri = monaco.Uri.parse(
+        `file:///${pythonFilepath.replace(/\\/g, '/')}`
+      );
+
+      // Get the current model
+      const currentModel = monacoEditorRef.current.getModel();
+
+      // Only update if the URI is different
+      if (currentModel && currentModel.uri.toString() !== fileUri.toString()) {
+        // Check if a model already exists for the new URI
+        const existingModel = monaco.editor.getModel(fileUri);
+
+        if (existingModel) {
+          // Use existing model
+          monacoEditorRef.current.setModel(existingModel);
+        } else {
+          // Create a new model
+          const newModel = monaco.editor.createModel(
+            valueRef.current,
+            'python',
+            fileUri
+          );
+          monacoEditorRef.current.setModel(newModel);
+
+          // Dispose the old model if it's not being used by other editors
+          if (currentModel && !currentModel.isDisposed()) {
+            const otherModels = monaco.editor.getModels();
+            const isShared = otherModels.some(
+              (m) =>
+                m !== currentModel &&
+                m.uri.toString() === currentModel.uri.toString()
+            );
+
+            if (!isShared) {
+              currentModel.dispose();
+            }
+          }
+        }
+
+        // Re-analyze when model changes
+        analyzeSuggestions();
+      }
+    }
+  }, [filepath]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -352,7 +565,7 @@ function BaseMonacoEditor({
     }
   }, [optimizationTypes]);
 
-  // Function to analyze code and update suggestions
+  // Function to analyze code and update suggestions (Python-specific)
   const analyzeSuggestions = () => {
     if (!monacoEditorRef.current) return;
 
@@ -360,47 +573,107 @@ function BaseMonacoEditor({
     if (!model) return;
 
     const code = model.getValue();
-    const lang = languageRef.current;
-
-    // For now, create dummy suggestions for every line to show the stars
-    // This will be replaced with real AI analysis later
     const lines = code.split('\n');
-    const dummySuggestions: CodeSuggestion[] = [];
+    const pythonSuggestions: CodeSuggestion[] = [];
 
-    // Create a dummy suggestion for each line
+    // Create Python-specific suggestions
     lines.forEach((line, index) => {
       // Skip empty lines
       if (line.trim() === '') return;
 
-      // Only create suggestions for every 3rd line (for demonstration purposes)
-      if (index % 3 !== 0) return;
+      // Only create suggestions for specific Python patterns
+      if (
+        line.includes('print') &&
+        !line.includes('f"') &&
+        line.includes('"')
+      ) {
+        // Suggest f-strings for print statements
+        pythonSuggestions.push({
+          id: `python-fstring-${index}`,
+          type: 'optimization' as SuggestionType,
+          lineNumber: index + 1,
+          code: line,
+          replacement: line.replace(/print\("(.+?)"\)/, 'print(f"$1")'),
+          description: 'Consider using f-strings for better string formatting',
+          severity: 'info',
+        });
+      } else if (
+        line.match(/for\s+\w+\s+in\s+range\(\d+\)/) &&
+        !line.includes('enumerate')
+      ) {
+        // Suggest enumerate for indexed loops
+        pythonSuggestions.push({
+          id: `python-enumerate-${index}`,
+          type: 'refactoring' as SuggestionType,
+          lineNumber: index + 1,
+          code: line,
+          replacement: line.replace(
+            /for\s+(\w+)\s+in\s+range\((.+?)\)/,
+            'for i, $1 in enumerate(range($2))'
+          ),
+          description: 'Use enumerate() to get index and value in loops',
+          severity: 'info',
+        });
+      } else if (
+        line.includes('if') &&
+        (line.includes('==') || line.includes('!=')) &&
+        line.includes('None')
+      ) {
+        // Suggest proper None comparison
+        pythonSuggestions.push({
+          id: `python-none-${index}`,
+          type: 'bugfix' as SuggestionType,
+          lineNumber: index + 1,
+          code: line,
+          replacement: line
+            .replace(/([^=!])==([\s]*)None/, '$1 is$2None')
+            .replace(/([^=!])!=([\s]*)None/, '$1 is not$2None'),
+          description: 'Use "is None" instead of "== None" for identity check',
+          severity: 'warning',
+        });
+      } else if (index % 5 === 0) {
+        // Add occasional hints
+        // Add some random Python tips
+        const tips = [
+          {
+            type: 'completion',
+            text: '# Consider adding docstrings to document your code',
+            replace:
+              '"""Add your docstring here to describe function purpose"""\n' +
+              line,
+          },
+          {
+            type: 'optimization',
+            text: '# Use list comprehension for more efficient code',
+            replace:
+              '# List comprehension example: [x for x in range(10)]\n' + line,
+          },
+          {
+            type: 'refactoring',
+            text: '# Extract this into a function for better reusability',
+            replace:
+              '# Consider refactoring this into a separate function\n' + line,
+          },
+        ];
 
-      // Rotate between different types for demonstration
-      const typeOptions = [
-        'optimization',
-        'bugfix',
-        'refactoring',
-        'completion',
-      ];
-      const type = typeOptions[index % typeOptions.length];
-      const severity = type === 'bugfix' ? 'warning' : 'info';
-
-      dummySuggestions.push({
-        id: `dummy-${index}`,
-        type: type as SuggestionType,
-        lineNumber: index + 1,
-        code: line,
-        replacement: `// This is a placeholder ${type} for line ${index + 1}`,
-        description: `This is a sample ${type} suggestion for demonstration`,
-        severity: severity,
-      });
+        const tip = tips[index % tips.length];
+        pythonSuggestions.push({
+          id: `python-tip-${index}`,
+          type: tip.type as SuggestionType,
+          lineNumber: index + 1,
+          code: line,
+          replacement: tip.replace,
+          description: tip.text,
+          severity: 'info',
+        });
+      }
     });
 
     // Store all suggestions
-    suggestionsRef.current = dummySuggestions;
+    suggestionsRef.current = pythonSuggestions;
 
     // Filter based on optimization types
-    const filteredSuggestions = dummySuggestions.filter((suggestion) =>
+    const filteredSuggestions = pythonSuggestions.filter((suggestion) =>
       optimizationTypesRef.current.includes(
         suggestion.type === 'optimization' ? 'performance' : suggestion.type
       )
@@ -506,46 +779,96 @@ function BaseMonacoEditor({
   // Initialize the editor once
   useEffect(() => {
     if (editorRef.current && !initializedRef.current) {
-      // Define custom theme
-      monaco.editor.defineTheme('ensaai-dark', {
+      // Define custom theme with Python-friendly colors
+      monaco.editor.defineTheme('python-dark', {
         base: 'vs-dark',
         inherit: true,
         rules: [
-          { token: 'comment', foreground: '6272a4' },
-          { token: 'keyword', foreground: 'ff79c6' },
-          { token: 'string', foreground: 'f1fa8c' },
-          { token: 'number', foreground: 'bd93f9' },
-          { token: 'operator', foreground: 'ff79c6' },
+          { token: 'comment', foreground: '6A9955' },
+          { token: 'keyword', foreground: 'CF9FFF' }, // Light purple for keywords
+          { token: 'string', foreground: 'CE9178' },
+          { token: 'number', foreground: 'B5CEA8' },
+          { token: 'operator', foreground: 'D4D4D4' },
+          { token: 'delimiter', foreground: 'D4D4D4' },
+          { token: 'type', foreground: '4EC9B0' },
+          { token: 'function', foreground: 'DCDCAA' },
         ],
         colors: {
           'editor.background': '#0a0a12',
           'editor.foreground': '#f8f8f2',
           'editorCursor.foreground': '#f8f8f2',
-          'editor.lineHighlightBackground': '#1e1e2e',
+          'editor.lineHighlightBackground': '#1E1E2E',
           'editorLineNumber.foreground': '#6272a4',
-          'editor.selectionBackground': '#44475a',
-          'editor.inactiveSelectionBackground': '#44475a80',
+          'editor.selectionBackground': '#264F78',
+          'editor.inactiveSelectionBackground': '#264F7880',
         },
       });
 
-      // Register language features
-      registerLanguageFeatures(monaco);
+      // Register Python language features
+      registerPythonFeatures(monaco);
 
-      // Initialize Monaco Editor with glyph margin enabled for suggestion icons
-      monacoEditorRef.current = monaco.editor.create(editorRef.current, {
-        value: valueRef.current,
-        language: languageRef.current,
-        theme: 'ensaai-dark',
-        automaticLayout: true,
-        minimap: { enabled: true },
-        scrollBeyondLastLine: false,
-        fontSize: 14,
-        fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
-        lineNumbers: 'on',
-        wordWrap: 'on',
-        glyphMargin: true, // Enable glyph margin for suggestion icons
-        ...options,
-      });
+      // Ensure file has Python extension
+      const pythonFilepath = ensurePythonExtension(filepathRef.current);
+
+      try {
+        // Create or reuse the model with the Python file path
+        const fileUri = monaco.Uri.parse(
+          `file:///${pythonFilepath.replace(/\\/g, '/')}`
+        );
+
+        // Check if a model already exists for this URI
+        let model = monaco.editor.getModel(fileUri);
+
+        if (model) {
+          // If model exists, update its value
+          model.setValue(valueRef.current);
+        } else {
+          // Create a new model
+          model = monaco.editor.createModel(
+            valueRef.current,
+            'python',
+            fileUri
+          );
+        }
+
+        // Initialize Monaco Editor with Python settings
+        monacoEditorRef.current = monaco.editor.create(editorRef.current, {
+          model: model,
+          theme: 'python-dark',
+          automaticLayout: true,
+          minimap: { enabled: true },
+          scrollBeyondLastLine: false,
+          fontSize: 14,
+          fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
+          lineNumbers: 'on',
+          wordWrap: 'on',
+          glyphMargin: true, // Enable glyph margin for suggestion icons
+          tabSize: 4, // Python standard
+          insertSpaces: true, // Use spaces instead of tabs for Python
+          ...options,
+        });
+      } catch (error) {
+        // Fallback if there's any error with model creation
+        console.error('Error creating model:', error);
+
+        // Create without a specific model
+        monacoEditorRef.current = monaco.editor.create(editorRef.current, {
+          value: valueRef.current,
+          language: 'python',
+          theme: 'python-dark',
+          automaticLayout: true,
+          minimap: { enabled: true },
+          scrollBeyondLastLine: false,
+          fontSize: 14,
+          fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
+          lineNumbers: 'on',
+          wordWrap: 'on',
+          glyphMargin: true,
+          tabSize: 4,
+          insertSpaces: true,
+          ...options,
+        });
+      }
 
       // Add CSS for suggestion icons, line highlighting, and inline buttons
       const styleElement = document.createElement('style');
@@ -869,6 +1192,14 @@ ${suggestion.replacement || 'No specific replacement available'}
 
       initializedRef.current = true;
 
+      // Notify parent that editor is ready with API
+      if (onEditorReady) {
+        onEditorReady({
+          createPythonFile,
+          getCurrentValue,
+        });
+      }
+
       // Cleanup
       return () => {
         clearTimeout(changeTimeout);
@@ -877,13 +1208,33 @@ ${suggestion.replacement || 'No specific replacement available'}
           styleElement.parentNode.removeChild(styleElement);
         }
         if (monacoEditorRef.current) {
+          // Get the model before disposing the editor
+          const model = monacoEditorRef.current.getModel();
+
+          // Dispose the editor
           monacoEditorRef.current.dispose();
           monacoEditorRef.current = null;
+
+          // Only attempt to dispose the model if it's not already disposed
+          if (model && !model.isDisposed()) {
+            const uri = model.uri.toString();
+            const otherModels = monaco.editor.getModels();
+
+            // Only dispose if no other editor is using this model
+            const isShared = otherModels.some(
+              (m) => m !== model && m.uri.toString() === uri
+            );
+
+            if (!isShared) {
+              model.dispose();
+            }
+          }
+
           initializedRef.current = false;
         }
       };
     }
-  }, [options]); // Only depend on options
+  }, [options, onEditorReady]); // Added onEditorReady to dependencies
 
   // Update the editor value when it changes externally
   useEffect(() => {
@@ -913,19 +1264,21 @@ ${suggestion.replacement || 'No specific replacement available'}
   }, [value]);
 
   return <div ref={editorRef} className="h-full w-full" />;
-}
+});
 
-// Export memoized version to prevent unnecessary re-renders
+// Export wrapped component with memo for better performance
 export default memo(BaseMonacoEditor, (prevProps, nextProps) => {
   // Only re-render if these props actually change in a significant way
   return (
-    prevProps.language === nextProps.language &&
+    // We force Python so language prop changes don't matter
+    // prevProps.language === nextProps.language &&
     // For value changes, only re-render for significant changes
     (prevProps.value === nextProps.value ||
       Math.abs(prevProps.value?.length - nextProps.value?.length) < 10) &&
     prevProps.theme === nextProps.theme &&
     JSON.stringify(prevProps.options) === JSON.stringify(nextProps.options) &&
     JSON.stringify(prevProps.optimizationTypes) ===
-      JSON.stringify(nextProps.optimizationTypes)
+      JSON.stringify(nextProps.optimizationTypes) &&
+    prevProps.filepath === nextProps.filepath
   );
 });
