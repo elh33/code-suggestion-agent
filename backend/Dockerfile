@@ -4,7 +4,10 @@ WORKDIR /app
 
 # Install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Python dependencies including email-validator and passlib
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir email-validator pydantic[email] passlib[bcrypt]
 
 # Copy backend code
 COPY . .

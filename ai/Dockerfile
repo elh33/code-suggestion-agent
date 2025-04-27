@@ -27,4 +27,4 @@ COPY . .
 EXPOSE 8001
 
 # Start the WebSocket service
-CMD ["python", "-m", "service.main", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["python", "-m", "ai.service.main", "--host", "0.0.0.0", "--port", "8001"]

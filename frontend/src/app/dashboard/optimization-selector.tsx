@@ -12,7 +12,7 @@ interface OptimizationOption {
   id: string;
   name: string;
   description: string;
-  icon: JSX.Element;
+  icon: React.ReactNode;
 }
 
 interface OptimizationSelectorProps {
