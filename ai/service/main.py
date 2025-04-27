@@ -43,8 +43,8 @@ async def start_ws_server(args):
             model_file=model_path,
             download_dir=args.download_dir,
             temperature=0.7,
-            n_ctx=256,        # Reduced context window 
-            n_threads=1       # Single thread
+            n_ctx=512,        # Reduced context window 
+            n_threads=2       # Single thread
         )
         logger.info("Model loaded successfully with reduced memory settings")
     except Exception as e:

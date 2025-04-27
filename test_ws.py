@@ -6,7 +6,7 @@ import sys
 
 async def test_websocket_client():
     """Test the WebSocket service"""
-    uri = "ws://localhost:8000"
+    uri = "ws://localhost:8001"
     
     print(f"Connecting to {uri}...")
     try:

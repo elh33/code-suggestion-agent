@@ -1,7 +1,7 @@
 import { CodeSuggestion } from '../app/dashboard/suggestion-types';
 
 // Maximum length for code chunks to send to the AI service
-const MAX_CHUNK_LENGTH = 150;
+const MAX_CHUNK_LENGTH = 350;
 
 class WebSocketService {
   private ws: WebSocket | null = null;
@@ -243,7 +243,7 @@ class WebSocketService {
       console.log(`Split code into ${chunks.length} chunks for processing`);
 
       // For smaller context window models, only process a subset of chunks
-      const maxChunksToProcess = Math.min(3, chunks.length);
+      const maxChunksToProcess = Math.min(10, chunks.length);
       const chunksToProcess = chunks.slice(0, maxChunksToProcess);
       
       if (chunks.length > maxChunksToProcess) {
@@ -330,7 +330,7 @@ class WebSocketService {
         console.log(`Request ${requestId} timed out`);
         this.pendingRequests.delete(requestId);
         reject(new Error('Request timed out'));
-      }, 10000);
+      }, 90000);
       
       // Store callback to handle the response
       this.pendingRequests.set(requestId, (response) => {
