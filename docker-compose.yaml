@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Frontend service
+  frontend:
+    build: 
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8001
+    depends_on:
+      - backend
+      - ai-service
+
+  # Backend service
+  backend:
+    build: 
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+    depends_on:
+      - mongodb
+
+  # AI WebSocket service
+  ai-service:
+    build: 
+      context: .
+      dockerfile: ./ai/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ai-models:/app/models
+
+  # MongoDB
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+volumes:
+  ai-models:
+  mongodb-data:

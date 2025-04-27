@@ -40,6 +40,7 @@ import {
 import LoadingScreen from '@/components/loading-screen';
 import MonacoIntegration from './monaco-integration';
 import type { CodeSuggestion } from './suggestion-types';
+import SuggestionPanel from './suggestion-panel';
 
 // Define types for our file system
 interface FileItem {
@@ -172,8 +173,6 @@ if __name__ == "__main__":
       router.push('/login');
     }
   }, [isAuthenticated, router]);
-
- 
 
   const executePythonCode = async (code: string): Promise<string> => {
     try {
@@ -982,18 +981,34 @@ if __name__ == "__main__":
           </div>
 
           <div className="flex-1 flex overflow-hidden">
+           
             {/* Editor area */}
-            <div className="flex-1 overflow-hidden relative">
-              {/* Monaco Editor integration */}
-              <MonacoIntegration
-                initialValue={fileContents[currentFile] || `// ${currentFile}`}
-                language={getCurrentFileLanguage()}
-                onChange={handleEditorChange}
-                onSuggestionsChange={handleSuggestionsChange}
-                onExecuteCode={executePythonCode}
-              />
-            </div>
+            <div className="flex flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden relative">
+                {/* Monaco Editor integration */}
+                <MonacoIntegration
+                  initialValue={
+                    fileContents[currentFile] || `// ${currentFile}`
+                  }
+                  language={getCurrentFileLanguage()}
+                  onChange={handleEditorChange}
+                  onSuggestionsChange={handleSuggestionsChange}
+                  onExecuteCode={executePythonCode}
+                />
+              </div>
 
+              {/* Add Suggestion Panel */}
+              {suggestions.length > 0 && (
+                <div className="w-80 border-l border-gray-800 overflow-y-auto">
+                  <SuggestionPanel
+                    suggestions={suggestions}
+                    onApplySuggestion={handleApplySuggestion}
+                    onJumpToLine={handleJumpToLine}
+                    highlightOptimizationAndBugfix={true}
+                  />
+                </div>
+              )}
+            </div>
             {/* AI suggestions panel */}
             <div
               className={`border-l border-gray-800 ${

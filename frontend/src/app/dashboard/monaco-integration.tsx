@@ -152,7 +152,6 @@ export default function MonacoIntegration({
                 Run
               </TabsTrigger>
             </TabsList>
-
             <TabsContent
               value="editor"
               className="p-4 h-[calc(100%-2.5rem)] overflow-y-auto"
@@ -190,9 +189,29 @@ export default function MonacoIntegration({
               <OptimizationSelector
                 selectedTypes={optimizationTypes}
                 onChange={handleOptimizationTypesChange}
+                currentCode={code}
+                onSuggestionsReceived={(newSuggestions) => {
+                  // Combine with existing suggestions
+                  const combinedSuggestions = [...suggestions];
+
+                  // Add only unique suggestions
+                  newSuggestions.forEach((suggestion) => {
+                    const isDuplicate = combinedSuggestions.some(
+                      (existing) =>
+                        existing.id === suggestion.id ||
+                        (existing.lineNumber === suggestion.lineNumber &&
+                          existing.type === suggestion.type)
+                    );
+
+                    if (!isDuplicate) {
+                      combinedSuggestions.push(suggestion);
+                    }
+                  });
+
+                  handleSuggestionsChange(combinedSuggestions);
+                }}
               />
             </TabsContent>
-
             {/* New Tab Content for Code Execution */}
             <TabsContent
               value="execute"

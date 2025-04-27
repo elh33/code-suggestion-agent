@@ -15,7 +15,7 @@ class QuantizedModel:
         self, 
         model_name: str = "TheBloke/CodeLlama-7B-Instruct-GGUF", 
         model_file: str = "codellama-7b-instruct.Q4_K_M.gguf",
-        download_dir: str = "D:/models",
+        download_dir: str = "C:/models",
         temperature: float = 0.7,
         n_ctx: int = 2048,
         n_threads: Optional[int] = None

@@ -7,7 +7,7 @@ class CodeEmbeddings:
     def __init__(
         self, 
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-        cache_dir: str = "D:/huggingface_cache",
+        cache_dir: str = "C:/huggingface_cache",
         device: str = "cpu"
     ):
         """Initialize the embedding model

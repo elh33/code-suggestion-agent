@@ -1,19 +1,19 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
-# Set the working directory
 WORKDIR /app
 
-# Copy the requirements file
+# Install dependencies
 COPY requirements.txt .
-
-# Install the dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
-COPY app ./app
+# Copy backend code
+COPY . .
 
-# Expose the port the app runs on
+# Expose API port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Environment variables
+ENV MONGO_URI=mongodb://mongodb:27017
+
+# Start FastAPI server
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

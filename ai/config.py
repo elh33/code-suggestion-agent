@@ -8,8 +8,8 @@ load_dotenv()
 # Base directories
 ROOT_DIR = Path(__file__).parent.parent
 DATA_DIR = os.getenv("DATA_DIR", ROOT_DIR / "data")
-CACHE_DIR = os.getenv("HF_HOME", "D:/huggingface_cache")
-MODEL_DOWNLOAD_DIR = os.getenv("MODEL_DOWNLOAD_DIR", "D:/models")
+CACHE_DIR = os.getenv("HF_HOME", "C:/huggingface_cache")
+MODEL_DOWNLOAD_DIR = os.getenv("MODEL_DOWNLOAD_DIR", "C:/models")
 
 # Model settings
 MODEL_NAME = os.getenv("MODEL_NAME", "TheBloke/CodeLlama-7B-Instruct-GGUF")

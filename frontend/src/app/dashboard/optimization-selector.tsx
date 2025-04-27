@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Rocket, Bug, RefreshCw, Sparkles, Zap } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import websocketService from '../../services/webSocketService';
+import { CodeSuggestion } from './suggestion-types';
 
 interface OptimizationOption {
   id: string;
@@ -16,13 +18,34 @@ interface OptimizationOption {
 interface OptimizationSelectorProps {
   selectedTypes: string[];
   onChange: (types: string[]) => void;
+  currentCode?: string; // Add current code prop
+  onSuggestionsReceived?: (suggestions: CodeSuggestion[]) => void; // Add suggestions callback
 }
 
 export default function OptimizationSelector({
   selectedTypes,
   onChange,
+  currentCode = '', // Default to empty string
+  onSuggestionsReceived,
 }: OptimizationSelectorProps) {
   const [processingOption, setProcessingOption] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connected' | 'disconnected' | 'connecting'
+  >('disconnected');
+
+  // Check connection on mount
+  useEffect(() => {
+    const checkConnection = () => {
+      const isConnected = websocketService.isConnectedToServer();
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    };
+
+    // Check immediately and then on interval
+    checkConnection();
+    const interval = setInterval(checkConnection, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const optimizationOptions: OptimizationOption[] = [
     {
@@ -59,32 +82,41 @@ export default function OptimizationSelector({
     }
   };
 
-  const handleOptimizationClick = (optionId: string) => {
+  const handleOptimizationClick = async (optionId: string) => {
+    // Guard against no code or already processing
+    if (!currentCode || processingOption) {
+      return;
+    }
+
     setProcessingOption(optionId);
 
-    console.log(`Requesting ${optionId} analysis from server...`);
+    try {
+      console.log(`Requesting ${optionId} analysis from AI...`);
 
-    // Simulate a websocket request with a timeout
-    setTimeout(() => {
-      console.log(`Received ${optionId} analysis results from server!`);
+      // Send the request to our WebSocket service
+      const suggestions = await websocketService.requestSuggestion(
+        currentCode,
+        optionId
+      );
 
-      // The following would be where you handle the websocket response
-      console.log({
-        type: 'optimization_request',
-        optimizationType: optionId,
-        timestamp: new Date().toISOString(),
-      });
+      // Handle the response
+      console.log(`Received ${suggestions.length} suggestions from AI`);
 
+      // Pass suggestions to parent component if callback provided
+      if (onSuggestionsReceived && suggestions.length > 0) {
+        onSuggestionsReceived(suggestions);
+
+        // Dispatch an event to focus on the first suggestion
+        const event = new CustomEvent('focusSuggestion', {
+          detail: { suggestion: suggestions[0] },
+        });
+        window.dispatchEvent(event);
+      }
+    } catch (error) {
+      console.error(`Error during ${optionId} analysis:`, error);
+    } finally {
       setProcessingOption(null);
-    }, 1500);
-
-    // Here is where you would send the actual websocket message
-    // Example:
-    // socket.send(JSON.stringify({
-    //   type: 'optimization_request',
-    //   optimizationType: optionId,
-    //   code: editorContent
-    // }));
+    }
   };
 
   return (
@@ -95,6 +127,17 @@ export default function OptimizationSelector({
           Choose which types of optimizations to display in your code editor or
           click to request immediate analysis
         </p>
+        {connectionStatus !== 'connected' && (
+          <div className="p-2 bg-amber-900/30 border border-amber-800/50 rounded-md mb-4">
+            <p className="text-amber-300 text-xs flex items-center">
+              <span className="inline-block h-2 w-2 rounded-full bg-amber-400 mr-2"></span>
+              AI server{' '}
+              {connectionStatus === 'connecting'
+                ? 'connecting...'
+                : 'disconnected'}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -129,7 +172,11 @@ export default function OptimizationSelector({
                 size="sm"
                 className="w-full text-xs h-8"
                 onClick={() => handleOptimizationClick(option.id)}
-                disabled={processingOption === option.id}
+                disabled={
+                  processingOption === option.id ||
+                  !currentCode ||
+                  connectionStatus !== 'connected'
+                }
               >
                 {processingOption === option.id ? (
                   <>
@@ -139,7 +186,7 @@ export default function OptimizationSelector({
                 ) : (
                   <>
                     {option.icon}
-                    <span>Run {option.name}</span>
+                    <span className="ml-1.5">Run {option.name}</span>
                   </>
                 )}
               </Button>
