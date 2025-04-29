@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FileCode,
   FolderOpen,
@@ -79,6 +79,7 @@ interface ExpandedItems {
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
+  const editorRef = useRef<any>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(true);
   const [currentFile, setCurrentFile] = useState<string>('main.py');
@@ -392,7 +393,7 @@ if __name__ == "__main__":
     []
   );
 
-  // Add this function to handle applying a suggestion
+  // Replace the existing handleApplySuggestion function (around line 397-413)
   const handleApplySuggestion = useCallback(
     (suggestion: CodeSuggestion) => {
       if (suggestion.replacement) {
@@ -408,17 +409,33 @@ if __name__ == "__main__":
             ...prev,
             [currentFile]: newContent,
           }));
+
+          // After applying the suggestion, update the editor content
+          if (editorRef.current) {
+            editorRef.current.setValue(newContent);
+            editorRef.current.revealLineInCenter(suggestion.lineNumber);
+            editorRef.current.setPosition({
+              lineNumber: suggestion.lineNumber,
+              column: 1,
+            });
+            editorRef.current.focus();
+          }
         }
       }
     },
     [currentFile, fileContents]
   );
 
-  // Add this function to jump to a specific line in the editor
+  // Replace the existing handleJumpToLine function (around line 416-420)
   const handleJumpToLine = useCallback((lineNumber: number) => {
-    // This will be handled by the Monaco editor internally
-    // We just need to pass the information to the parent component
-    console.log(`Jump to line ${lineNumber}`);
+    if (editorRef.current) {
+      editorRef.current.revealLineInCenter(lineNumber);
+      editorRef.current.setPosition({
+        lineNumber: lineNumber,
+        column: 1,
+      });
+      editorRef.current.focus();
+    }
   }, []);
 
   // Find file by name in the file structure
@@ -981,7 +998,6 @@ if __name__ == "__main__":
           </div>
 
           <div className="flex-1 flex overflow-hidden">
-           
             {/* Editor area */}
             <div className="flex flex-1 overflow-hidden">
               <div className="flex-1 overflow-hidden relative">
@@ -994,6 +1010,7 @@ if __name__ == "__main__":
                   onChange={handleEditorChange}
                   onSuggestionsChange={handleSuggestionsChange}
                   onExecuteCode={executePythonCode}
+                  editorRef={editorRef}
                 />
               </div>
 

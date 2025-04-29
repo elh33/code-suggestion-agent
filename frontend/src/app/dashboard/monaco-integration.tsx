@@ -28,6 +28,7 @@ interface MonacoIntegrationProps {
   width?: string;
   readOnly?: boolean;
   performAnalysis?: boolean;
+  editorRef?: React.MutableRefObject<any>;
 }
 
 export default function MonacoIntegration({
@@ -41,6 +42,8 @@ export default function MonacoIntegration({
   width = '100%',
   readOnly = false,
   performAnalysis = true,
+  editorRef, // Include editorRef in props
+  onChange, // Include onChange
 }: MonacoIntegrationProps) {
   // State for code and suggestions
   const [code, setCode] = useState(initialValue);
@@ -58,6 +61,10 @@ export default function MonacoIntegration({
     setCode(newCode);
     if (onCodeChange) {
       onCodeChange(newCode);
+    }
+    // Call the onChange prop to update parent state
+    if (onChange) {
+      onChange(newCode);
     }
   };
 
@@ -112,6 +119,7 @@ export default function MonacoIntegration({
             onChange={handleCodeChange}
             onSuggestionsChange={handleSuggestionsChange}
             optimizationTypes={optimizationTypes}
+            editorRef={editorRef} // Pass editorRef to monaco-editor
             options={{
               readOnly,
               minimap: { enabled: true },
