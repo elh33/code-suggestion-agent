@@ -17,6 +17,52 @@ class WebSocketService {
     this.connect();
   }
 
+// Add this method to your existing WebSocketService class
+
+/**
+ * Generate AI response for chat
+ */
+async generateAIResponse(
+  prompt: string,
+  context: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!this.isConnectedToServer()) {
+      this.connect();
+      reject(new Error('Not connected to AI server. Please try again in a moment.'));
+      return;
+    }
+
+    const requestId = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Set a timeout for the request
+    const timeout = setTimeout(() => {
+      this.pendingRequests.delete(requestId);
+      reject(new Error('Request timed out'));
+    }, 30000);
+    
+    // Register callback for this request
+    this.pendingRequests.set(requestId, (response) => {
+      clearTimeout(timeout);
+      
+      if (response.status === 'success') {
+        resolve(response.message || response.suggestion || 'No response generated.');
+      } else {
+        reject(new Error(response.message || 'Failed to generate response'));
+      }
+    });
+
+    // Send request to the server
+    this.ws!.send(JSON.stringify({
+      id: requestId,
+      action: "completion",
+      prompt: prompt,
+      context: context
+    }));
+  });
+}
+
+
   /**
    * Connect to the WebSocket server
    */
@@ -312,7 +358,7 @@ class WebSocketService {
   /**
    * Process a single chunk of code
    */
-  private async processSingleChunk(
+  public async processSingleChunk(
     code: string, 
     type: string,
     context?: string

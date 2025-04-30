@@ -4,6 +4,8 @@ import type React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import ChatPanel from './chat-panel';
+import * as monaco from 'monaco-editor';
 import {
   FileCode,
   FolderOpen,
@@ -218,6 +220,48 @@ if __name__ == "__main__":
       return `Execution error: ${error instanceof Error ? error.message : String(error)}`;
     }
   };
+
+  const handleInsertCodeFromChat = useCallback(
+    (code: string) => {
+      if (editorRef.current) {
+        // Get current editor instance
+        const monacoEditor = (window as any).monacoEditor || editorRef.current;
+        if (!monacoEditor) return;
+
+        // Get cursor position
+        const position = monacoEditor.getPosition();
+        if (!position) return;
+
+        // Create a range at cursor position
+        const range = new monaco.Range(
+          position.lineNumber,
+          position.column,
+          position.lineNumber,
+          position.column
+        );
+
+        // Insert the code
+        monacoEditor.executeEdits('insert-chat-code', [
+          {
+            range: range,
+            text: code,
+            forceMoveMarkers: true,
+          },
+        ]);
+
+        // Focus the editor
+        monacoEditor.focus();
+
+        // Update fileContents with the new content
+        const updatedContent = monacoEditor.getValue();
+        setFileContents((prev) => ({
+          ...prev,
+          [currentFile]: updatedContent,
+        }));
+      }
+    },
+    [currentFile]
+  );
 
   // Enhanced language detection based on file extension
   const getFileLanguage = (filename: string): string => {
@@ -1027,6 +1071,7 @@ if __name__ == "__main__":
               )}
             </div>
             {/* AI suggestions panel */}
+            {/* AI Chat panel */}
             <div
               className={`border-l border-gray-800 ${
                 aiPanelOpen ? 'w-80' : 'w-0'
@@ -1049,38 +1094,11 @@ if __name__ == "__main__":
                     </Button>
                   </div>
 
-                  <div className="flex-1 flex flex-col">
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                      <div className="flex items-start space-x-2">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="bg-indigo-600 text-xs">
-                            AI
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 bg-gray-800/50 rounded-lg p-3">
-                          <p className="text-sm text-gray-300">
-                            Hello! I'm your AI coding assistant. How can I help
-                            you today?
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-gray-800 p-4">
-                      <div className="relative">
-                        <Input
-                          placeholder="Ask a question..."
-                          className="pr-10 bg-gray-800/50 border-gray-700"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                        >
-                          <MessageSquare className="w-5 h-5" />
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="flex-1 overflow-hidden">
+                    <ChatPanel
+                      currentCode={fileContents[currentFile] || ''}
+                      onInsertCode={handleInsertCodeFromChat}
+                    />
                   </div>
                 </>
               )}

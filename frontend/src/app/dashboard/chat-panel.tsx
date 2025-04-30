@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageSquare, Send, Copy, Check, Code } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import websocketService from '../../services/webSocketService';
 
 interface ChatMessage {
   id: string;
@@ -44,8 +45,8 @@ export default function ChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle sending a message
-  const handleSendMessage = async () => {
+  // Handle sending a message using the WebSocket service
+  const handleSendMessage = useCallback(async () => {
     if (!input.trim() || isProcessing) return;
 
     // Add user message
@@ -61,20 +62,35 @@ export default function ChatPanel({
     setIsProcessing(true);
 
     try {
-      // Simulate AI response - in a real app, this would call your API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      const suggestResult = await websocketService.processSingleChunk(
+        currentCode,
+        'completion', // using the completion type as in your buttons
+        input // Using the user's input as the context/prompt
+      );
 
-      // Generate a response based on the user's input
-      let aiResponse = generateMockResponse(input, currentCode);
+      // Extract the response from the result
+      let aiResponseText = '';
+
+      if (suggestResult && suggestResult.length > 0) {
+        // Use the replacement field from the first suggestion as the response
+        aiResponseText =
+          suggestResult[0].replacement ||
+          suggestResult[0].description ||
+          "I've analyzed your code but don't have a specific suggestion.";
+      } else {
+        aiResponseText =
+          "I couldn't generate a response based on your request.";
+      }
 
       // Extract code blocks from response
-      const codeBlocks = extractCodeBlocks(aiResponse);
+      const codeBlocks = extractCodeBlocks(aiResponseText);
 
       // Add AI response
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: aiResponse,
+        content: aiResponseText,
         timestamp: new Date(),
         codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined,
       };
@@ -97,157 +113,18 @@ export default function ChatPanel({
       setIsProcessing(false);
       inputRef.current?.focus();
     }
-  };
-
-  // Mock response generator
-  const generateMockResponse = (prompt: string, code: string): string => {
-    const promptLower = prompt.toLowerCase();
-
-    // Simple pattern matching for common questions
-    if (promptLower.includes('hello') || promptLower.includes('hi')) {
-      return 'Hello! How can I assist you with your Python code today?';
-    }
-
-    if (promptLower.includes('optimize') || promptLower.includes('improve')) {
-      return `I can suggest some optimizations for your code:
-
-\`\`\`python
-# Optimized version of your code
-def calculate_sum(numbers):
-    """Calculate the sum of a list of numbers more efficiently."""
-    return sum(numbers)  # Using built-in sum() is more efficient
-
-def main():
-    hello()
-    
-    # Example calculation with list comprehension
-    numbers = [i for i in range(1, 6)]
-    result = calculate_sum(numbers)
-    print(f"The sum of {numbers} is {result}")
-    
-    # Additional optimization
-    print("Program completed successfully!")
-
-if __name__ == "__main__":
-    main()
-\`\`\`
-
-This version:
-1. Uses list comprehension for creating the numbers list
-2. Keeps the efficient sum() function
-3. Maintains the same functionality`;
-    }
-
-    if (promptLower.includes('explain') || promptLower.includes('how does')) {
-      return `Let me explain your Python code:
-
-The code defines three functions:
-
-1. \`hello()\`: A simple function that prints a greeting message.
-
-2. \`calculate_sum(numbers)\`: A function that takes a list of numbers and returns their sum using Python's built-in \`sum()\` function.
-
-3. \`main()\`: The main function that:
-   - Calls \`hello()\` to print a greeting
-   - Creates a list of numbers [1, 2, 3, 4, 5]
-   - Calculates their sum using \`calculate_sum()\`
-   - Prints the result
-   - Prints a completion message
-
-The \`if __name__ == "__main__":\` statement ensures that the \`main()\` function is only executed when the script is run directly, not when it's imported as a module.`;
-    }
-
-    if (
-      promptLower.includes('bug') ||
-      promptLower.includes('error') ||
-      promptLower.includes('fix')
-    ) {
-      return `I don't see any obvious bugs in your code, but here are some potential improvements for robustness:
-
-\`\`\`python
-def calculate_sum(numbers):
-    """Calculate the sum of a list of numbers."""
-    if not numbers:
-        return 0  # Handle empty list case
-    return sum(numbers)
-
-def main():
-    """Main function that runs when the script is executed."""
-    hello()
-    
-    try:
-        # Example calculation
-        numbers = [1, 2, 3, 4, 5]
-        result = calculate_sum(numbers)
-        print(f"The sum of {numbers} is {result}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    
-    print("Program completed successfully!")
-\`\`\`
-
-The changes:
-1. Added a check for empty lists in calculate_sum()
-2. Added error handling with try/except
-3. This makes the code more robust against potential errors`;
-    }
-
-    if (promptLower.includes('test') || promptLower.includes('unittest')) {
-      return `Here's how you can add unit tests for your code:
-
-\`\`\`python
-import unittest
-
-# Your existing code here
-def hello():
-    """Print a greeting message."""
-    print("Hello, Python world!")
-
-def calculate_sum(numbers):
-    """Calculate the sum of a list of numbers."""
-    return sum(numbers)
-
-# Unit tests
-class TestFunctions(unittest.TestCase):
-    def test_calculate_sum(self):
-        """Test the calculate_sum function."""
-        self.assertEqual(calculate_sum([1, 2, 3, 4, 5]), 15)
-        self.assertEqual(calculate_sum([]), 0)
-        self.assertEqual(calculate_sum([-1, 1]), 0)
-    
-    # You can add more test methods here
-
-if __name__ == "__main__":
-    # Run the tests
-    unittest.main()
-\`\`\`
-
-To use this:
-1. Save this as test_main.py
-2. Run it with \`python test_main.py\`
-3. It will test your calculate_sum function with different inputs`;
-    }
-
-    // Default response for other questions
-    return `I've analyzed your Python code. Your code looks well-structured with functions for specific tasks. 
-
-Is there anything specific you'd like me to help with? I can:
-- Explain how parts of your code work
-- Suggest optimizations
-- Help fix bugs
-- Create unit tests
-- Add features
-
-Just let me know what you need!`;
-  };
+  }, [input, isProcessing, currentCode]);
 
   // Handle pressing Enter to send message
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    },
+    [handleSendMessage]
+  );
 
   // Extract code blocks from markdown
   const extractCodeBlocks = (text: string): string[] => {
@@ -263,21 +140,24 @@ Just let me know what you need!`;
   };
 
   // Handle copying code
-  const handleCopyCode = (code: string, messageId: string) => {
+  const handleCopyCode = useCallback((code: string, messageId: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCodeId(`${messageId}-${code.substring(0, 10)}`);
 
     setTimeout(() => {
       setCopiedCodeId(null);
     }, 2000);
-  };
+  }, []);
 
   // Handle inserting code into editor
-  const handleInsertCode = (code: string) => {
-    if (onInsertCode) {
-      onInsertCode(code);
-    }
-  };
+  const handleInsertCode = useCallback(
+    (code: string) => {
+      if (onInsertCode) {
+        onInsertCode(code);
+      }
+    },
+    [onInsertCode]
+  );
 
   // Convert markdown to JSX
   const renderMessageContent = (content: string) => {
