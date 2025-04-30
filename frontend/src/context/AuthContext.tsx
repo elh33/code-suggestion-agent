@@ -30,17 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Check if user is logged in on initial load
   useEffect(() => {
-    const storedUserId = localStorage.getItem('userId');
-    const storedUsername = localStorage.getItem('username');
-
-    if (storedUserId && storedUsername) {
-      setIsAuthenticated(true);
-      setUserId(storedUserId);
-      setUsername(storedUsername);
-    }
-
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    setIsAuthenticated(false);
+    setUserId(null);
+    setUsername(null);
     setLoading(false);
   }, []);
 

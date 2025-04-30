@@ -14,7 +14,6 @@ import { useAuth } from '@/context/AuthContext';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [localError, setLocalError] = useState('');
   const { login, error: authError, loading } = useAuth();
   const router = useRouter();
@@ -29,9 +28,6 @@ export default function LoginPage() {
 
     const success = await login({ email, password });
     if (success) {
-      if (rememberMe) {
-        localStorage.setItem('rememberMe', 'true');
-      }
       router.push('/dashboard'); // Redirect to dashboard on success
     }
   };
@@ -707,16 +703,7 @@ export default function LoginPage() {
                   />
                 </div>
 
-                {/* Add remember me checkbox */}
                 <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="rememberMe"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) =>
-                      setRememberMe(checked === true)
-                    }
-                    className="data-[state=checked]:bg-indigo-500"
-                  />
                   <label htmlFor="rememberMe" className="text-sm text-gray-400">
                     Remember me
                   </label>
