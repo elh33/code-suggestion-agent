@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import LoadingScreen from '@/components/loading-screen';
@@ -12,25 +12,35 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/login?redirected=true');
+    // Only perform the auth check after the AuthContext has finished loading
+    if (!loading) {
+      console.log(
+        'ProtectedRoute: Auth loading complete, authenticated:',
+        isAuthenticated
+      );
+
+      if (!isAuthenticated) {
+        console.log('ProtectedRoute: Not authenticated, redirecting to login');
+        router.push('/login');
+      } else {
+        console.log('ProtectedRoute: User is authenticated');
+      }
+
+      // Mark that we've checked authentication status
+      setHasCheckedAuth(true);
     }
   }, [isAuthenticated, loading, router]);
 
-  // Show loading state while checking authentication
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a12] text-white">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-t-indigo-500 border-gray-700 rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
+  // While auth is loading or we haven't completed our check, show loading screen
+  if (loading || (!hasCheckedAuth && !isAuthenticated)) {
+    console.log('ProtectedRoute: Showing loading screen');
+    return <LoadingScreen finishLoading={() => {}} />;
   }
 
-  // Only render children if the user is authenticated
+  // If auth check is complete and user is authenticated, show the content
+  // Otherwise return null (the redirect will happen from the useEffect)
   return isAuthenticated ? <>{children}</> : null;
 }

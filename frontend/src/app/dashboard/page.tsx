@@ -185,13 +185,6 @@ if __name__ == "__main__":
     setFileContents(initialContents);
   }, []);
 
-  // Add this useEffect after your other useEffect hooks
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, router]);
-
   const executePythonCode = async (code: string): Promise<string> => {
     try {
       const response = await fetch('https://emkc.org/api/v2/piston/execute', {
@@ -732,6 +725,7 @@ if __name__ == "__main__":
 
   return (
     <ProtectedRoute>
+      
       <div className="h-screen flex flex-col bg-[#0a0a12] text-white overflow-hidden">
         {/* Header */}
         <header className="h-14 border-b border-gray-800 flex items-center justify-between px-4">

@@ -19,6 +19,7 @@ interface AuthContextType {
   error: string | null;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
+  updateUsername: (newUsername: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,44 +33,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   // Check for existing session on component mount
+  // Inside your checkAuthStatus function:
+
+  // Inside the checkAuthStatus function, enhance the auth restoration logic:
+
   useEffect(() => {
     const checkAuthStatus = () => {
-      const storedUserId = localStorage.getItem('userId');
-      const storedUsername = localStorage.getItem('username');
-      const token = localStorage.getItem('token');
+      console.log('Checking authentication status...');
+      try {
+        // Get auth data from localStorage
+        const storedUserId = localStorage.getItem('userId');
+        const storedUsername = localStorage.getItem('username');
+        const token = localStorage.getItem('token');
 
-      if (storedUserId && storedUsername) {
-        // Set default authorization header if token exists
-        if (token) {
+        console.log('Auth data in localStorage:', {
+          hasUserId: !!storedUserId,
+          hasUsername: !!storedUsername,
+          hasToken: !!token,
+        });
+
+        // If all data exists, restore the session
+        if (storedUserId && storedUsername && token) {
+          console.log('Restoring authentication from localStorage');
+
+          // Set default authorization header for API calls
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+          // Update state to reflect authenticated user
+          setIsAuthenticated(true);
+          setUserId(storedUserId);
+          setUsername(storedUsername);
+
+          console.log('Authentication state restored successfully');
+        } else {
+          console.log('Missing auth data in localStorage, not authenticated');
+          setIsAuthenticated(false);
         }
-
-        setIsAuthenticated(true);
-        setUserId(storedUserId);
-        setUsername(storedUsername);
+      } catch (error) {
+        console.error('Error checking authentication status:', error);
+        setIsAuthenticated(false);
+      } finally {
+        // Always set loading to false when done checking
+        setLoading(false);
+        console.log('Auth loading state complete');
       }
-
-      setLoading(false);
     };
 
-    checkAuthStatus();
+    // Delay the auth check slightly to ensure dependencies are ready
+    const timer = setTimeout(checkAuthStatus, 100);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Set up axios interceptor for handling auth errors
-  useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Unauthorized error - token expired or invalid
-          logout();
-        }
-        return Promise.reject(error);
-      }
-    );
+  // Function to update username (for profile updates)
+  const updateUsername = (newUsername: string) => {
+    // Only proceed if the new username is valid
+    if (newUsername) {
+      // Update React state
+      setUsername(newUsername);
 
-    return () => axios.interceptors.response.eject(interceptor);
-  }, []);
+      // Also update in localStorage so it persists through page refreshes
+      localStorage.setItem('username', newUsername);
+    }
+  };
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     setLoading(true);
@@ -84,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Store auth data
+      // Store auth data in localStorage for persistence
       localStorage.setItem('userId', response.user_id);
       localStorage.setItem('username', response.username);
 
@@ -121,9 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
     setUserId(null);
     setUsername(null);
-
-    // Redirect to login page
-    router.push('/login');
   };
 
   return (
@@ -136,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error,
         login,
         logout,
+        updateUsername,
       }}
     >
       {children}

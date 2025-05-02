@@ -95,6 +95,9 @@ export default function ProfileSettingsPage() {
     return emailRegex.test(email);
   };
 
+  const { updateUsername } = useAuth(); // Add updateUsername here
+
+  // Then modify your handleSaveProfile function:
   const handleSaveProfile = async () => {
     // Validate email format
     if (profileData.email && !validateEmail(profileData.email)) {
@@ -113,6 +116,9 @@ export default function ProfileSettingsPage() {
         username: profileData.username,
         email: profileData.email,
       });
+
+      // Update username in AuthContext so it persists across the app
+      updateUsername(profileData.username);
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
