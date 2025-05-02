@@ -20,6 +20,7 @@ import {
   Bell,
   File,
   Folder,
+  LogOut, // Add this import
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,10 +40,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'; // Add these imports
 import LoadingScreen from '@/components/loading-screen';
 import MonacoIntegration from './monaco-integration';
 import type { CodeSuggestion } from './suggestion-types';
 import SuggestionPanel from './suggestion-panel';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 // Define types for our file system
 interface FileItem {
@@ -85,7 +94,7 @@ export default function DashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(true);
   const [currentFile, setCurrentFile] = useState<string>('main.py');
-  const { isAuthenticated, username, userId } = useAuth();
+  const { isAuthenticated, username, userId, logout } = useAuth(); // Add logout here
   const [fileContents, setFileContents] = useState<FileContents>({});
   const [expandedItems, setExpandedItems] = useState<ExpandedItems>({});
   const [newItemType, setNewItemType] = useState<'file' | 'folder' | null>(
@@ -97,6 +106,12 @@ export default function DashboardPage() {
   const [newItemParentId, setNewItemParentId] = useState<number | null>(null);
   const [nextId, setNextId] = useState<number>(9); // For generating new file/folder IDs
   const [suggestions, setSuggestions] = useState<CodeSuggestion[]>([]);
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   // Update the files array to only include main.py
   const [files, setFiles] = useState<FileSystemItem[]>([
@@ -716,407 +731,424 @@ if __name__ == "__main__":
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a12] text-white overflow-hidden">
-      {/* Header */}
-      {/* Header */}
-      <header className="h-14 border-b border-gray-800 flex items-center justify-between px-4">
-        <div className="flex items-center">
-          <h1 className="text-xl font-semibold">EnsaAi Code Studio</h1>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-400 hover:text-white"
-          ></Button>
-          <div className="flex items-center space-x-2">
-            <Avatar className="w-8 h-8">
-              <AvatarImage
-                src={`https://avatar.vercel.sh/${username || 'user'}.png`}
-              />
-              <AvatarFallback>
-                {username?.slice(0, 2).toUpperCase() || 'US'}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium">{username || 'User'}</span>
+    <ProtectedRoute>
+      <div className="h-screen flex flex-col bg-[#0a0a12] text-white overflow-hidden">
+        {/* Header */}
+        <header className="h-14 border-b border-gray-800 flex items-center justify-between px-4">
+          <div className="flex items-center">
+            <h1 className="text-xl font-semibold">EnsaAi Code Studio</h1>
           </div>
-        </div>
-      </header>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <aside
-          className={`border-r border-gray-800 flex flex-col ${
-            sidebarCollapsed ? 'w-14' : 'w-64'
-          } transition-all duration-300`}
-        >
-          {/* Sidebar header */}
-          <div className="h-12 border-b border-gray-800 flex items-center justify-between px-4">
-            {!sidebarCollapsed && <span className="font-medium">Explorer</span>}
+          <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
               size="icon"
               className="text-gray-400 hover:text-white"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
-              <PanelLeft className="w-5 h-5" />
+              <Bell className="w-5 h-5" />
             </Button>
-          </div>
 
-          {/* Sidebar content */}
-          <div className="flex-1 overflow-y-auto py-2">
-            {!sidebarCollapsed && (
-              <>
-                <div className="px-3 mb-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <Input
-                      placeholder="Search files..."
-                      className="pl-8 bg-gray-800/50 border-gray-700 text-sm h-8"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between px-4 py-2">
-                  <span className="text-xs font-medium text-gray-400 uppercase">
-                    Files
-                  </span>
-                  <div className="flex space-x-1">
-                    <Dialog
-                      open={newItemType === 'file' && newItemParentId === null}
-                      onOpenChange={(open) => !open && setNewItemType(null)}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 text-gray-400 hover:text-white"
-                          onClick={() => handleAddItem('file', null)}
-                        >
-                          <File className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
-                        <DialogHeader>
-                          <DialogTitle>
-                            Create New{' '}
-                            {newItemType === 'file' ? 'Python File' : 'Folder'}
-                          </DialogTitle>
-                          <DialogDescription className="text-gray-400">
-                            Enter a name for the new {newItemType}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4">
-                          <Input
-                            placeholder={
-                              newItemType === 'file'
-                                ? 'filename.py'
-                                : 'folder-name'
-                            }
-                            value={newItemName}
-                            onChange={(e) => setNewItemName(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
-                            autoFocus
-                          />
-                          {newItemType === 'file' &&
-                            !newItemName.toLowerCase().endsWith('.py') &&
-                            newItemName.includes('.') && (
-                              <p className="text-red-400 text-xs mt-1">
-                                Only Python (.py) files are supported
-                              </p>
-                            )}
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setNewItemType(null);
-                              setNewItemParentId(null);
-                            }}
-                            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleCreateItem}
-                            disabled={
-                              newItemType === 'file' &&
-                              newItemName.includes('.') &&
-                              !newItemName.toLowerCase().endsWith('.py')
-                            }
-                          >
-                            Create
-                          </Button>
-                        </DialogFooter>
-                        <div className="py-4">
-                          <Input
-                            placeholder="filename.py"
-                            value={newItemName}
-                            onChange={(e) => setNewItemName(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
-                            autoFocus
-                          />
-                          {!newItemName.toLowerCase().endsWith('.py') &&
-                            newItemName.includes('.') && (
-                              <p className="text-red-400 text-xs mt-1">
-                                Only Python (.py) files are supported
-                              </p>
-                            )}
-                        </div>
-                        <div className="py-4">
-                          <Input
-                            placeholder="filename.js"
-                            value={newItemName}
-                            onChange={(e) => setNewItemName(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
-                            autoFocus
-                          />
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => setNewItemType(null)}
-                            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                          >
-                            Cancel
-                          </Button>
-                          <Button onClick={handleCreateItem}>Create</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-
-                    <Dialog
-                      open={
-                        newItemType === 'folder' && newItemParentId === null
-                      }
-                      onOpenChange={(open) => !open && setNewItemType(null)}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-5 h-5 text-gray-400 hover:text-white"
-                          onClick={() => handleAddItem('folder', null)}
-                        >
-                          <Folder className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
-                        <DialogHeader>
-                          <DialogTitle>Create New Python File</DialogTitle>
-                          <DialogDescription className="text-gray-400">
-                            Enter a name for the new Python file
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4">
-                          <Input
-                            placeholder="filename.py"
-                            value={newItemName}
-                            onChange={(e) => setNewItemName(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
-                            autoFocus
-                          />
-                          {!newItemName.toLowerCase().endsWith('.py') &&
-                            newItemName.includes('.') && (
-                              <p className="text-red-400 text-xs mt-1">
-                                Only Python (.py) files are supported
-                              </p>
-                            )}
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => setNewItemType(null)}
-                            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleCreateItem}
-                            disabled={
-                              newItemName.includes('.') &&
-                              !newItemName.toLowerCase().endsWith('.py')
-                            }
-                          >
-                            Create
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
-
-                <div className="px-1">
-                  {files.map((item) => renderFileExplorerItem(item))}
-                </div>
-
-                {/* Dialog for creating files/folders inside folders */}
-                <Dialog
-                  open={newItemType !== null && newItemParentId !== null}
-                  onOpenChange={(open) => !open && setNewItemType(null)}
+            {/* User dropdown menu with logout */}
+            <div className="relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="p-0 h-8 flex items-center space-x-2 hover:bg-gray-800"
+                  >
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage
+                        src={`https://avatar.vercel.sh/${username || 'user'}.png`}
+                      />
+                      <AvatarFallback>
+                        {username?.slice(0, 2).toUpperCase() || 'US'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium">
+                      {username || 'User'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56 bg-[#0e0d14] border-gray-800 text-white"
                 >
-                  <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
-                    <DialogHeader>
-                      <DialogTitle>
-                        Create New {newItemType === 'file' ? 'File' : 'Folder'}
-                      </DialogTitle>
-                      <DialogDescription className="text-gray-400">
-                        Enter a name for the new {newItemType}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{username}</p>
+                      <p className="text-xs text-gray-400">Logged in</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator className="bg-gray-800" />
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => router.push('/settings')}
+                  >
+                    <Settings className="mr-2 h-4 w-4" /> Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-gray-800" />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-red-400 hover:text-red-300"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 flex overflow-hidden">
+          {/* Sidebar */}
+          <aside
+            className={`border-r border-gray-800 flex flex-col ${
+              sidebarCollapsed ? 'w-14' : 'w-64'
+            } transition-all duration-300`}
+          >
+            {/* Sidebar header */}
+            <div className="h-12 border-b border-gray-800 flex items-center justify-between px-4">
+              {!sidebarCollapsed && (
+                <span className="font-medium">Explorer</span>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-gray-400 hover:text-white"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              >
+                <PanelLeft className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Sidebar content */}
+            <div className="flex-1 overflow-y-auto py-2">
+              {!sidebarCollapsed && (
+                <>
+                  <div className="px-3 mb-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                       <Input
-                        placeholder={
-                          newItemType === 'file' ? 'filename.js' : 'folder-name'
-                        }
-                        value={newItemName}
-                        onChange={(e) => setNewItemName(e.target.value)}
-                        className="bg-gray-800 border-gray-700 text-white"
-                        autoFocus
+                        placeholder="Search files..."
+                        className="pl-8 bg-gray-800/50 border-gray-700 text-sm h-8"
                       />
                     </div>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setNewItemType(null);
-                          setNewItemParentId(null);
-                        }}
-                        className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                  </div>
+
+                  <div className="flex items-center justify-between px-4 py-2">
+                    <span className="text-xs font-medium text-gray-400 uppercase">
+                      Files
+                    </span>
+                    <div className="flex space-x-1">
+                      <Dialog
+                        open={
+                          newItemType === 'file' && newItemParentId === null
+                        }
+                        onOpenChange={(open) => !open && setNewItemType(null)}
                       >
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateItem}>Create</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </>
-            )}
-          </div>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 text-gray-400 hover:text-white"
+                            onClick={() => handleAddItem('file', null)}
+                          >
+                            <File className="w-4 h-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
+                          <DialogHeader>
+                            <DialogTitle>
+                              Create New{' '}
+                              {newItemType === 'file'
+                                ? 'Python File'
+                                : 'Folder'}
+                            </DialogTitle>
+                            <DialogDescription className="text-gray-400">
+                              Enter a name for the new {newItemType}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <Input
+                              placeholder={
+                                newItemType === 'file'
+                                  ? 'filename.py'
+                                  : 'folder-name'
+                              }
+                              value={newItemName}
+                              onChange={(e) => setNewItemName(e.target.value)}
+                              className="bg-gray-800 border-gray-700 text-white"
+                              autoFocus
+                            />
+                            {newItemType === 'file' &&
+                              !newItemName.toLowerCase().endsWith('.py') &&
+                              newItemName.includes('.') && (
+                                <p className="text-red-400 text-xs mt-1">
+                                  Only Python (.py) files are supported
+                                </p>
+                              )}
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setNewItemType(null);
+                                setNewItemParentId(null);
+                              }}
+                              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleCreateItem}
+                              disabled={
+                                newItemType === 'file' &&
+                                newItemName.includes('.') &&
+                                !newItemName.toLowerCase().endsWith('.py')
+                              }
+                            >
+                              Create
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
 
-          {/* Sidebar footer */}
-          <div className="h-auto border-t border-gray-800 p-2">
-            <div className="flex flex-col space-y-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-gray-400 hover:text-white"
-                      onClick={() => {
-                        router.push('/settings');
-                      }}
-                    >
-                      <Settings className="w-5 h-5 text-white" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side={sidebarCollapsed ? 'right' : 'top'}>
-                    Settings
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Editor header */}
-          <div className="h-10 border-b border-gray-800 flex items-center justify-between px-4">
-            <div className="flex items-center">
-              <span className="text-sm text-gray-300">{currentFile}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white"
-              ></Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white"
-              ></Button>
-            </div>
-          </div>
-
-          <div className="flex-1 flex overflow-hidden">
-            {/* Editor area */}
-            <div className="flex flex-1 overflow-hidden">
-              <div className="flex-1 overflow-hidden relative">
-                {/* Monaco Editor integration */}
-                <MonacoIntegration
-                  initialValue={
-                    fileContents[currentFile] || `// ${currentFile}`
-                  }
-                  language={getCurrentFileLanguage()}
-                  onChange={handleEditorChange}
-                  onSuggestionsChange={handleSuggestionsChange}
-                  onExecuteCode={executePythonCode}
-                  editorRef={editorRef}
-                />
-              </div>
-
-              {/* Add Suggestion Panel */}
-              {suggestions.length > 0 && (
-                <div className="w-80 border-l border-gray-800 overflow-y-auto">
-                  <SuggestionPanel
-                    suggestions={suggestions}
-                    onApplySuggestion={handleApplySuggestion}
-                    onJumpToLine={handleJumpToLine}
-                    highlightOptimizationAndBugfix={true}
-                  />
-                </div>
-              )}
-            </div>
-            {/* AI suggestions panel */}
-            {/* AI Chat panel */}
-            <div
-              className={`border-l border-gray-800 ${
-                aiPanelOpen ? 'w-80' : 'w-0'
-              } transition-all duration-300 flex flex-col overflow-hidden`}
-            >
-              {aiPanelOpen && (
-                <>
-                  <div className="h-10 border-b border-gray-800 flex items-center justify-between px-4">
-                    <div className="flex items-center">
-                      <MessageSquare className="w-4 h-4 text-indigo-400 mr-2" />
-                      <span className="font-medium text-sm">AI Chat</span>
+                      <Dialog
+                        open={
+                          newItemType === 'folder' && newItemParentId === null
+                        }
+                        onOpenChange={(open) => !open && setNewItemType(null)}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-5 h-5 text-gray-400 hover:text-white"
+                            onClick={() => handleAddItem('folder', null)}
+                          >
+                            <Folder className="w-4 h-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
+                          <DialogHeader>
+                            <DialogTitle>Create New Python File</DialogTitle>
+                            <DialogDescription className="text-gray-400">
+                              Enter a name for the new Python file
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <Input
+                              placeholder="filename.py"
+                              value={newItemName}
+                              onChange={(e) => setNewItemName(e.target.value)}
+                              className="bg-gray-800 border-gray-700 text-white"
+                              autoFocus
+                            />
+                            {!newItemName.toLowerCase().endsWith('.py') &&
+                              newItemName.includes('.') && (
+                                <p className="text-red-400 text-xs mt-1">
+                                  Only Python (.py) files are supported
+                                </p>
+                              )}
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              variant="outline"
+                              onClick={() => setNewItemType(null)}
+                              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleCreateItem}
+                              disabled={
+                                newItemName.includes('.') &&
+                                !newItemName.toLowerCase().endsWith('.py')
+                              }
+                            >
+                              Create
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-gray-400 hover:text-white"
-                      onClick={() => setAiPanelOpen(false)}
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </Button>
                   </div>
 
-                  <div className="flex-1 overflow-hidden">
-                    <ChatPanel
-                      currentCode={fileContents[currentFile] || ''}
-                      onInsertCode={handleInsertCodeFromChat}
-                    />
+                  <div className="px-1">
+                    {files.map((item) => renderFileExplorerItem(item))}
                   </div>
+
+                  {/* Dialog for creating files/folders inside folders */}
+                  <Dialog
+                    open={newItemType !== null && newItemParentId !== null}
+                    onOpenChange={(open) => !open && setNewItemType(null)}
+                  >
+                    <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-gray-800">
+                      <DialogHeader>
+                        <DialogTitle>
+                          Create New{' '}
+                          {newItemType === 'file' ? 'File' : 'Folder'}
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-400">
+                          Enter a name for the new {newItemType}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <Input
+                          placeholder={
+                            newItemType === 'file'
+                              ? 'filename.js'
+                              : 'folder-name'
+                          }
+                          value={newItemName}
+                          onChange={(e) => setNewItemName(e.target.value)}
+                          className="bg-gray-800 border-gray-700 text-white"
+                          autoFocus
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setNewItemType(null);
+                            setNewItemParentId(null);
+                          }}
+                          className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                        >
+                          Cancel
+                        </Button>
+                        <Button onClick={handleCreateItem}>Create</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </>
               )}
+            </div>
 
-              {!aiPanelOpen && (
+            {/* Sidebar footer */}
+            <div className="h-auto border-t border-gray-800 p-2">
+              <div className="flex flex-col space-y-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => {
+                          router.push('/settings');
+                        }}
+                      >
+                        <Settings className="w-5 h-5 text-white" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side={sidebarCollapsed ? 'right' : 'top'}>
+                      Settings
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main content */}
+          <main className="flex-1 flex flex-col overflow-hidden">
+            {/* Editor header */}
+            <div className="h-10 border-b border-gray-800 flex items-center justify-between px-4">
+              <div className="flex items-center">
+                <span className="text-sm text-gray-300">{currentFile}</span>
+              </div>
+              <div className="flex items-center space-x-1">
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="absolute right-4 top-4 text-gray-400 hover:text-white"
-                  onClick={() => setAiPanelOpen(true)}
-                >
-                  <MessageSquare className="w-5 h-5" />
-                </Button>
-              )}
+                  size="sm"
+                  className="text-gray-400 hover:text-white"
+                ></Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white"
+                ></Button>
+              </div>
             </div>
-          </div>
-        </main>
+
+            <div className="flex-1 flex overflow-hidden">
+              {/* Editor area */}
+              <div className="flex flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden relative">
+                  {/* Monaco Editor integration */}
+                  <MonacoIntegration
+                    initialValue={
+                      fileContents[currentFile] || `// ${currentFile}`
+                    }
+                    language={getCurrentFileLanguage()}
+                    onChange={handleEditorChange}
+                    onSuggestionsChange={handleSuggestionsChange}
+                    onExecuteCode={executePythonCode}
+                    editorRef={editorRef}
+                  />
+                </div>
+
+                {/* Add Suggestion Panel */}
+                {suggestions.length > 0 && (
+                  <div className="w-80 border-l border-gray-800 overflow-y-auto">
+                    <SuggestionPanel
+                      suggestions={suggestions}
+                      onApplySuggestion={handleApplySuggestion}
+                      onJumpToLine={handleJumpToLine}
+                      highlightOptimizationAndBugfix={true}
+                    />
+                  </div>
+                )}
+              </div>
+              {/* AI suggestions panel */}
+              {/* AI Chat panel */}
+              <div
+                className={`border-l border-gray-800 ${
+                  aiPanelOpen ? 'w-80' : 'w-0'
+                } transition-all duration-300 flex flex-col overflow-hidden`}
+              >
+                {aiPanelOpen && (
+                  <>
+                    <div className="h-10 border-b border-gray-800 flex items-center justify-between px-4">
+                      <div className="flex items-center">
+                        <MessageSquare className="w-4 h-4 text-indigo-400 mr-2" />
+                        <span className="font-medium text-sm">AI Chat</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => setAiPanelOpen(false)}
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </Button>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden">
+                      <ChatPanel
+                        currentCode={fileContents[currentFile] || ''}
+                        onInsertCode={handleInsertCodeFromChat}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {!aiPanelOpen && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-4 top-4 text-gray-400 hover:text-white"
+                    onClick={() => setAiPanelOpen(true)}
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

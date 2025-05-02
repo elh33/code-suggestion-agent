@@ -13,6 +13,7 @@ import LoadingScreen from '@/components/loading-screen';
 import DashboardPage from './dashboard/page';
 import DashboardLayout from './dashboard/layout';
 import ProfileSettingsPage from './settings/page';
+import LandingPage from './landing/page';
 const HomePage = () => {
   const [loading, setLoading] = React.useState(true);
   const finishLoading = () => {
@@ -25,7 +26,7 @@ const HomePage = () => {
         <LoadingScreen finishLoading={finishLoading} />
       ) : (
         <main className="min-h-screen bg-[#0e0d14]">
-          <DashboardPage></DashboardPage>
+          <LandingPage></LandingPage>
         </main>
       )}
     </>

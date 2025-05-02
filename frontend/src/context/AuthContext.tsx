@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { authService, LoginCredentials } from '@/services/authService';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -30,13 +31,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // Check for existing session on component mount
   useEffect(() => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('username');
-    setIsAuthenticated(false);
-    setUserId(null);
-    setUsername(null);
-    setLoading(false);
+    const checkAuthStatus = () => {
+      const storedUserId = localStorage.getItem('userId');
+      const storedUsername = localStorage.getItem('username');
+      const token = localStorage.getItem('token');
+
+      if (storedUserId && storedUsername) {
+        // Set default authorization header if token exists
+        if (token) {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+
+        setIsAuthenticated(true);
+        setUserId(storedUserId);
+        setUsername(storedUsername);
+      }
+
+      setLoading(false);
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  // Set up axios interceptor for handling auth errors
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          // Unauthorized error - token expired or invalid
+          logout();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => axios.interceptors.response.eject(interceptor);
   }, []);
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
@@ -56,6 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('userId', response.user_id);
       localStorage.setItem('username', response.username);
 
+      // Store token if available
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        axios.defaults.headers.common['Authorization'] =
+          `Bearer ${response.token}`;
+      }
+
       // Update state
       setIsAuthenticated(true);
       setUserId(response.user_id);
@@ -70,12 +109,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Remove from local storage
     localStorage.removeItem('userId');
     localStorage.removeItem('username');
+    localStorage.removeItem('token');
+
+    // Remove auth header
+    delete axios.defaults.headers.common['Authorization'];
+
+    // Update state
     setIsAuthenticated(false);
     setUserId(null);
     setUsername(null);
-    router.push('/');
+
+    // Redirect to login page
+    router.push('/login');
   };
 
   return (

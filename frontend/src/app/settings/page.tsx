@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import axios from 'axios';
+import { userService } from '@/services/userService';
 import { User, Lock, Mail, ArrowLeft, Save, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,28 +47,31 @@ export default function ProfileSettingsPage() {
       return;
     }
 
-    // Set initial username from auth context
-    setProfileData((prev) => ({
-      ...prev,
-      username: username || '',
-    }));
+    const fetchUserProfile = async () => {
+      if (!userId) return;
 
-    // In a real app, you would fetch the complete profile data from API
-    // Example:
-    // const fetchProfile = async () => {
-    //   try {
-    //     const response = await axios.get(`http://localhost:8000/api/users/${userId}`);
-    //     if (response.data) {
-    //       setProfileData({
-    //         username: response.data.username,
-    //         email: response.data.email,
-    //       });
-    //     }
-    //   } catch (error) {
-    //     console.error('Error fetching profile data:', error);
-    //   }
-    // };
-    // fetchProfile();
+      try {
+        setLoading(true);
+        const userData = await userService.getProfile(userId);
+
+        setProfileData({
+          username: userData.username || '',
+          email: userData.email || '',
+        });
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+
+        // Set username from auth context as fallback
+        setProfileData((prev) => ({
+          ...prev,
+          username: username || '',
+        }));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
   }, [isAuthenticated, username, userId, router]);
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,23 +90,35 @@ export default function ProfileSettingsPage() {
     }));
   };
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSaveProfile = async () => {
+    // Validate email format
+    if (profileData.email && !validateEmail(profileData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!userId) return;
+
     setLoading(true);
     setSuccess(false);
     setError(null);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // In a real application, you would update profile via API
-      // Example:
-      // await axios.put(`http://localhost:8000/api/users/${userId}`, profileData);
+      await userService.updateProfile(userId, {
+        username: profileData.username,
+        email: profileData.email,
+      });
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      console.error('Error updating profile:', err);
+      setError(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -121,20 +136,35 @@ export default function ProfileSettingsPage() {
       return;
     }
 
+    // Check for uppercase letter
+    if (!/[A-Z]/.test(passwordData.newPassword)) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+
+    // Check for number
+    if (!/\d/.test(passwordData.newPassword)) {
+      setError('Password must contain at least one number');
+      return;
+    }
+
+    // Check for special character
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordData.newPassword)) {
+      setError('Password must contain at least one special character');
+      return;
+    }
+
+    if (!userId) return;
+
     setLoading(true);
     setSuccess(false);
     setError(null);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // In a real application, you would update password via API
-      // Example:
-      // await axios.post(`http://localhost:8000/api/users/${userId}/change-password`, {
-      //   current_password: passwordData.currentPassword,
-      //   new_password: passwordData.newPassword
-      // });
+      await userService.changePassword(userId, {
+        old_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword,
+      });
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -146,7 +176,17 @@ export default function ProfileSettingsPage() {
         confirmPassword: '',
       });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      console.error('Error updating password:', err);
+
+      // Handle specific error cases
+      if (
+        err.response?.data?.error &&
+        err.response.data.error.includes('incorrect')
+      ) {
+        setError('Current password is incorrect');
+      } else {
+        setError(err.response?.data?.error || 'Failed to update password');
+      }
     } finally {
       setLoading(false);
     }
