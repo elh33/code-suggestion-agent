@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Github, Mail } from 'lucide-react';
+import { ArrowRight, Github, Mail, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const { login, error: authError, loading } = useAuth();
   const router = useRouter();
 
@@ -28,7 +29,11 @@ export default function LoginPage() {
 
     const success = await login({ email, password });
     if (success) {
-      router.push('/dashboard'); // Redirect to dashboard on success
+      setLoginSuccess(true);
+      // Delay redirect for 2 seconds to show success message
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
     }
   };
 
@@ -651,8 +656,16 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              {/* Add error message display */}
-              {(localError || authError) && (
+              {/* Success message */}
+              {loginSuccess && (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-md text-green-300 text-sm flex items-center">
+                  <Check className="h-4 w-4 mr-2" />
+                  Login successful! Redirecting to EnsaAi Code Studio...
+                </div>
+              )}
+
+              {/* Error message display */}
+              {(localError || authError) && !loginSuccess && (
                 <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-md text-red-300 text-sm">
                   {localError || authError}
                 </div>
@@ -703,11 +716,7 @@ export default function LoginPage() {
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <label htmlFor="rememberMe" className="text-sm text-gray-400">
-                    Remember me
-                  </label>
-                </div>
+                <div className="flex items-center space-x-2"></div>
 
                 <Button
                   type="submit"

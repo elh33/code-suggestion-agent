@@ -133,22 +133,23 @@ export default function HeroSection() {
       <div className="container relative z-10 mx-auto px-4 text-center">
         <div className="mx-auto max-w-5xl">
           <h1 className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl md:text-6xl">
-            Booster votre développement avec{' '}
+          Boost your development with  :
+          {'        '}
             <span className="bg-gradient-to-r from-blue-500 via-violet-500 to-rose-500 bg-clip-text text-transparent">
               EnsaAi
             </span>
           </h1>
           <p className="mx-auto max-w-4xl text-lg text-gray-300 md:text-xl">
-            Libérez votre potentiel de développement avec l'IA : génération et
-            correction automatique du code pour une productivité sans précédent
+            Unlock your development potential with AI: automatic code generation
+            and correction for unprecedented productivity.
           </p>
-          <div className="flex justify-center">
+          <div className="flex mt-10 justify-center">
             <Button
               size="lg"
-              className="relative bg-black text-white hover:bg-black/80 before:absolute before:-inset-[2px] before:rounded-lg before:bg-gradient-to-r before:from-blue-500 before:via-violet-500 before:to-purple-600 before:-z-10"
+              className="relative bg-black text-white  hover:bg-black/80 before:absolute before:-inset-[2px] before:rounded-lg before:bg-gradient-to-r before:from-blue-500 before:via-violet-500 before:to-purple-600 before:-z-10"
               asChild
             >
-              <Link href="/get-started" className="relative z-10">
+              <Link href="/login" className="relative  z-10">
                 Get Started
               </Link>
             </Button>

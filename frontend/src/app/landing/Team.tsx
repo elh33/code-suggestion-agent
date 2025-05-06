@@ -28,7 +28,7 @@ export default function TeamSection() {
       name: 'Oussama Tahiri',
       role: 'Backend Developer',
       bio: 'A passionate backend developer with a love for coding.',
-      image: '/?height=400&width=400',
+      image: '/images/oussama.jpg?height=400&width=400',
       social: {
         github: 'https://github.com',
         linkedin: 'https://linkedin.com',
