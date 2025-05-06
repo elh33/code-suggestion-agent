@@ -19,4 +19,4 @@ EXPOSE 3000
 ENV NEXT_PUBLIC_WS_URL=ws://ai-service:8001
 
 # Start the app
-CMD ["npm", "start"]
+CMD ["npm", "run","dev"]
