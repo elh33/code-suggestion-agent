@@ -1,9 +1,0 @@
-fastapi
-openai
-langchain
-pinecone-client
-sentence-transformers
-tiktoken
-motor
-websockets
-pydantic

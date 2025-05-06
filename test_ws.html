@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Test</title>
+</head>
+<body>
+  <h1>Test WebSocket</h1>
+  <button onclick="sendMessage()">Envoyer un message</button>
+
+  <script>
+    const socket = new WebSocket("ws://localhost:8000/ws");
+
+    socket.onopen = () => {
+      console.log("✅ Connecté au backend WebSocket !");
+    };
+
+    socket.onmessage = (event) => {
+      console.log("📨 Message reçu :", event.data);
+    };
+
+    socket.onclose = () => {
+      console.log("❌ Déconnecté du backend");
+    };
+
+    function sendMessage() {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send("Hello depuis le bouton !");
+      } else {
+        console.warn("⚠️ WebSocket n'est pas connecté !");
+      }
+    }
+  </script>
+</body>
+</html>
