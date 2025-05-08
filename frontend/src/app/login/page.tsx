@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Github, Mail, Check } from 'lucide-react';
@@ -16,8 +16,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
   const [loginSuccess, setLoginSuccess] = useState(false);
-  const { login, error: authError, loading } = useAuth();
+  const { login, error: authError, loading, isAuthenticated } = useAuth(); // Add isAuthenticated here
   const router = useRouter();
+
+  useEffect(() => {
+    if (
+      isAuthenticated ||
+      (localStorage.getItem('userId') && localStorage.getItem('username'))
+    ) {
+      console.log('User already authenticated, redirecting to dashboard');
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

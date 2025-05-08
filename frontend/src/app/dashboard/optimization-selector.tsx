@@ -61,12 +61,6 @@ export default function OptimizationSelector({
       icon: <Bug className="w-4 h-4 text-red-400" />,
     },
     {
-      id: 'refactoring',
-      name: 'Code Refactoring',
-      description: 'Suggestions to improve code readability and structure',
-      icon: <RefreshCw className="w-4 h-4 text-blue-400" />,
-    },
-    {
       id: 'completion',
       name: 'Code Completion',
       description: 'Suggest ways to complete partially written code',
@@ -186,7 +180,7 @@ export default function OptimizationSelector({
                 ) : (
                   <>
                     {option.icon}
-                    <span className="ml-1.5">Run {option.name}</span>
+                    <span className="ml-1.5">{option.name}</span>
                   </>
                 )}
               </Button>
@@ -195,13 +189,7 @@ export default function OptimizationSelector({
         ))}
       </div>
 
-      <div className="border-t border-gray-800 pt-4 mt-6">
-        <p className="text-xs text-gray-400">
-          Stars will appear next to lines that have potential optimizations
-          based on your selections above. Click on a star to see available
-          actions.
-        </p>
-      </div>
+      <div className="border-t border-gray-800 pt-4 mt-6"></div>
     </div>
   );
 }

@@ -32,11 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Check for existing session on component mount
-  // Inside your checkAuthStatus function:
-
-  // Inside the checkAuthStatus function, enhance the auth restoration logic:
-
   useEffect(() => {
     const checkAuthStatus = () => {
       console.log('Checking authentication status...');
@@ -44,7 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Get auth data from localStorage
         const storedUserId = localStorage.getItem('userId');
         const storedUsername = localStorage.getItem('username');
-        const token = localStorage.getItem('token');
+
+        // Look for token with different possible names
+        const token =
+          localStorage.getItem('token') ||
+          localStorage.getItem('authToken') ||
+          localStorage.getItem('access_token') ||
+          localStorage.getItem('jwt');
 
         console.log('Auth data in localStorage:', {
           hasUserId: !!storedUserId,
@@ -52,12 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           hasToken: !!token,
         });
 
-        // If all data exists, restore the session
-        if (storedUserId && storedUsername && token) {
+        // Modified condition: Allow authentication if userId and username exist
+        // This is more resilient if token naming is inconsistent
+        if (storedUserId && storedUsername) {
           console.log('Restoring authentication from localStorage');
 
-          // Set default authorization header for API calls
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          // Set default authorization header for API calls if token exists
+          if (token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            // Ensure token is stored with consistent name
+            localStorage.setItem('token', token);
+          }
 
           // Update state to reflect authenticated user
           setIsAuthenticated(true);
@@ -102,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await authService.login(credentials);
+      console.log('Login response:', response); // Debug response structure
 
       if (response.error) {
         setError(response.error);
@@ -113,11 +120,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('userId', response.user_id);
       localStorage.setItem('username', response.username);
 
-      // Store token if available
-      if (response.token) {
-        localStorage.setItem('token', response.token);
-        axios.defaults.headers.common['Authorization'] =
-          `Bearer ${response.token}`;
+      // Find and store token with more flexible field name checking
+      const token = response.token;
+
+      if (token) {
+        localStorage.setItem('token', token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        console.log('Token stored successfully');
+      } else {
+        console.warn('No token found in login response');
       }
 
       // Update state
@@ -127,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return true;
     } catch (err) {
+      console.error('Login error:', err);
       setError('An unexpected error occurred during login');
       setLoading(false);
       return false;
@@ -138,6 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('userId');
     localStorage.removeItem('username');
     localStorage.removeItem('token');
+    localStorage.removeItem('authToken'); // Remove any alternative token names
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('jwt');
 
     // Remove auth header
     delete axios.defaults.headers.common['Authorization'];

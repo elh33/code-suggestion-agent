@@ -1135,7 +1135,7 @@ if __name__ == "__main__":
                     className="absolute right-4 top-4 text-gray-400 hover:text-white"
                     onClick={() => setAiPanelOpen(true)}
                   >
-                    <MessageSquare className="w-5 h-5" />
+                    <MessageSquare className="w-5 mt-[85px] h-5" />
                   </Button>
                 )}
               </div>
